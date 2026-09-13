@@ -1,5 +1,5 @@
 # ZimaOS one-click import template.
-# Before submitting, replace the two CHANGE_ME values below.
+# Before submitting, replace the administrator-token placeholder below.
 name: android-server-manager
 
 services:
@@ -8,7 +8,7 @@ services:
     platform: linux/amd64
     build:
       # Public Git repository containing this project and its Dockerfile.
-      context: https://github.com/CHANGE_ME/HomeLab-Android_Controller.git#main
+      context: https://github.com/josegustavo14/mobile-controller-linux-deploy.git#main
       dockerfile: Dockerfile
     image: android-server-manager:1.0.0
     environment:
