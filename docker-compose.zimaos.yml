@@ -6,11 +6,8 @@ services:
   android-server-manager:
     container_name: android-server-manager
     platform: linux/amd64
-    build:
-      # Public Git repository containing this project and its Dockerfile.
-      context: https://github.com/josegustavo14/mobile-controller-linux-deploy.git#main
-      dockerfile: Dockerfile
-    image: android-server-manager:1.0.0
+    # Published automatically by .github/workflows/publish-container.yml.
+    image: ghcr.io/josegustavo14/mobile-controller-linux-deploy:latest
     environment:
       HOME: /app/data
       APP_HOST: 0.0.0.0
@@ -30,9 +27,8 @@ services:
         published: "8080"
         protocol: tcp
     volumes:
-      - type: volume
-        source: android-server-manager-data
-        target: /app/data
+      # Short syntax is required by the current ZimaOS Compose importer.
+      - android-server-manager-data:/app/data
     restart: unless-stopped
     init: true
     read_only: true

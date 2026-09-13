@@ -4,11 +4,11 @@ Este guia instala o Android Server Manager a partir do código-fonte. O ZimaOS n
 
 ## Importação automática pela interface
 
-O arquivo [`docker-compose.zimaos.yml`](../docker-compose.zimaos.yml) foi preparado para a tela **Importar → Docker Compose** do ZimaOS. Ele baixa o projeto de um repositório Git público, constrói a imagem e cria automaticamente o volume persistente `android-server-manager-data`.
+O arquivo [`docker-compose.zimaos.yml`](../docker-compose.zimaos.yml) foi preparado para a tela **Importar → Docker Compose** do ZimaOS. Ele baixa a imagem pronta de `ghcr.io/josegustavo14/mobile-controller-linux-deploy:latest` e cria automaticamente o volume persistente `android-server-manager-data`.
 
-Antes de colar ou enviar o arquivo, altere somente `CHANGE_ME_WITH_A_LONG_RANDOM_TOKEN` para um token produzido por `openssl rand -hex 32`. A URL do repositório `josegustavo14/mobile-controller-linux-deploy` já está configurada.
+Antes de colar ou enviar o arquivo, altere somente `CHANGE_ME_WITH_A_LONG_RANDOM_TOKEN` para um token produzido por `openssl rand -hex 32`.
 
-Depois clique em **Submeter** e aguarde o build. Esta modalidade não precisa criar pastas manualmente: o volume nomeado preserva o banco SQLite, logs e chaves de pareamento ADB entre atualizações. O repositório precisa estar público, pois o builder do ZimaOS não recebe credenciais do GitHub nessa configuração.
+Depois clique em **Submeter** e aguarde o download. Esta modalidade não precisa criar pastas manualmente: o volume nomeado preserva o banco SQLite, logs e chaves de pareamento ADB entre atualizações.
 
 As seções abaixo descrevem a alternativa por SSH, útil para repositório privado ou para quem prefere os dados em uma pasta visível dentro de `/DATA/AppData`.
 
