@@ -51,6 +51,7 @@ API documentation is available at `/api/docs`. Main API groups are `/api/devices
 
 ## ZimaOS and Android setup
 
+- [One-click ZimaOS Compose template](docker-compose.zimaos.yml)
 - [ZimaOS deployment guide](docs/zimaos-deployment.md)
 - [Real Android Wi-Fi guide](docs/real-device-testing.md)
 

@@ -1,0 +1,48 @@
+# ZimaOS one-click import template.
+# Before submitting, replace the two CHANGE_ME values below.
+name: android-server-manager
+
+services:
+  android-server-manager:
+    container_name: android-server-manager
+    platform: linux/amd64
+    build:
+      # Public Git repository containing this project and its Dockerfile.
+      context: https://github.com/CHANGE_ME/HomeLab-Android_Controller.git#main
+      dockerfile: Dockerfile
+    image: android-server-manager:1.0.0
+    environment:
+      HOME: /app/data
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8080"
+      DATABASE_URL: sqlite:///./data/app.db
+      ADB_PATH: /opt/android-platform-tools/adb
+      ADB_SERVER_PORT: "5037"
+      ADB_TIMEOUT: "20"
+      # Generate one with: openssl rand -hex 32
+      ADMIN_TOKEN: CHANGE_ME_WITH_A_LONG_RANDOM_TOKEN
+      LINUX_DEPLOY_CLI: /data/user/0/ru.meefik.linuxdeploy/files/bin/linuxdeploy
+      LOG_LEVEL: INFO
+      # The bundled web interface is same-origin; no ZimaOS IP is required here.
+      ALLOWED_ORIGINS: http://localhost:8080
+    ports:
+      - target: 8080
+        published: "8080"
+        protocol: tcp
+    volumes:
+      - type: volume
+        source: android-server-manager-data
+        target: /app/data
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  android-server-manager-data:
+    name: android-server-manager-data
