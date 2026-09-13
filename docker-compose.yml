@@ -1,0 +1,24 @@
+services:
+  android-server-manager:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: android-server-manager:local
+    environment:
+      APP_HOST: ${APP_HOST:-0.0.0.0}
+      APP_PORT: ${APP_PORT:-8080}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/app.db}
+      ADB_PATH: ${ADB_PATH:-/opt/android-platform-tools/adb}
+      ADB_SERVER_PORT: ${ADB_SERVER_PORT:-5037}
+      ADB_TIMEOUT: ${ADB_TIMEOUT:-15}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true

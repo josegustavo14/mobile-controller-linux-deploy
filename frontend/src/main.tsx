@@ -1,0 +1,11 @@
+import { Activity, Boxes, Cable, FileText, MonitorCog, Settings2, TerminalSquare } from "lucide-react";
+import { createRoot } from "react-dom/client";
+import "./styles.css";
+
+const navigation = [[Activity, "Dashboard"], [Cable, "Devices"], [Boxes, "Environments"], [MonitorCog, "Services"], [TerminalSquare, "Terminal"], [FileText, "Logs"], [Settings2, "Settings"]] as const;
+
+function App() {
+  return <main className="shell"><aside className="sidebar"><a className="brand" href="/" aria-label="Android Server Manager home"><span className="brand-mark">A</span><span>Android<br />Server Manager</span></a><nav aria-label="Primary navigation">{navigation.map(([Icon, label], index) => <a className={index === 0 ? "nav-item active" : "nav-item"} href="#" key={label}><Icon aria-hidden="true" size={18} strokeWidth={1.8} />{label}</a>)}</nav><div className="node-state"><i />Control plane ready</div></aside><section className="workspace"><header><div><p className="kicker">Control plane</p><h1>Android compute nodes</h1></div><div className="clock">Local dashboard <span>•</span> No devices enrolled</div></header><div className="rule" /><section className="welcome-grid"><article className="signal-panel"><div className="signal-label"><i />Awaiting first node</div><h2>Your Android fleet starts here.</h2><p>Connect a rooted Android over ADB and use this panel to inspect its Linux environments safely.</p><button type="button">Add Android device</button></article><article className="architecture-panel" aria-label="System architecture"><div className="stage central">ZimaOS<br /><small>Control plane</small></div><div className="link-line" /><div className="stage pending">Android node<br /><small>ADB over TCP</small></div><div className="link-line muted" /><div className="stage pending">Linux Deploy<br /><small>CHROOT backend</small></div></article></section><section className="foundation"><div><p className="kicker">Phase 1 foundation</p><h2>Application is online</h2></div><dl><div><dt>API</dt><dd>FastAPI ready</dd></div><div><dt>Persistence</dt><dd>Volume mounted</dd></div><div><dt>ADB</dt><dd>Bundled in image</dd></div></dl></section></section></main>;
+}
+
+createRoot(document.getElementById("root")!).render(<App />);
