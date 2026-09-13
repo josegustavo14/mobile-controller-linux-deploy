@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     adb_path: str = "/opt/android-platform-tools/adb"
     adb_server_port: int = Field(default=5037, ge=1, le=65535)
     adb_timeout: float = Field(default=15.0, gt=0)
+    admin_token: str = ""
+    linux_deploy_cli: str = "/data/user/0/ru.meefik.linuxdeploy/files/bin/linuxdeploy"
     log_level: str = "INFO"
     allowed_origins: str = "http://localhost:8080"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

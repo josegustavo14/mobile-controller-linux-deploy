@@ -7,9 +7,11 @@ from datetime import UTC, datetime
 from backend.app.core.database import Database
 from backend.app.models.device import Device
 from backend.app.repositories.devices import DeviceRepository
+from backend.app.repositories.environments import EnvironmentRepository
 from backend.app.schemas.device import ConnectionStatus, DeviceCreate, DeviceUpdate, PairRequest
 from backend.app.services.adb import ADBClient, ADBError
 from backend.app.services.android import AndroidDetails, AndroidService
+from backend.app.services.audit import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +25,13 @@ class DuplicateDeviceError(ValueError):
 
 
 class DeviceService:
-    def __init__(self, database: Database, adb: ADBClient) -> None:
+    def __init__(self, database: Database, adb: ADBClient, audit: AuditService) -> None:
         self.database = database
         self.adb = adb
         self.repository = DeviceRepository()
+        self.environments = EnvironmentRepository()
         self.android = AndroidService(adb)
+        self.audit = audit
 
     def list(self) -> list[Device]:
         with self.database.session() as session:
@@ -41,7 +45,9 @@ class DeviceService:
         with self.database.session() as session:
             if self.repository.get_by_name(session, payload.name) or self.repository.get_by_endpoint(session, payload.host, payload.port):
                 raise DuplicateDeviceError(payload.name)
-            return self.repository.add(session, Device(name=payload.name, host=payload.host, port=payload.port))
+            device = self.repository.add(session, Device(name=payload.name, host=payload.host, port=payload.port))
+        self.audit.record("device.created", f"Added {device.name} at {device.host}:{device.port}.", device.id)
+        return device
 
     def update(self, device_id: str, payload: DeviceUpdate) -> Device:
         with self.database.session() as session:
@@ -59,16 +65,20 @@ class DeviceService:
                 device.connection_status = ConnectionStatus.DISCONNECTED.value
                 device.last_error = None
             session.flush()
-            return device
+        self.audit.record("device.updated", f"Updated connection settings for {device.name}.", device.id)
+        return device
 
     async def pair(self, payload: PairRequest) -> str:
         try:
-            return await asyncio.to_thread(
+            output = await asyncio.to_thread(
                 self.adb.pair,
                 f"{payload.host}:{payload.port}",
                 payload.pairing_code,
             )
+            self.audit.record("adb.paired", f"Paired wireless debugging with {payload.host}:{payload.port}.")
+            return output
         except ADBError as exc:
+            self.audit.record("adb.pair_failed", f"Wireless pairing failed for {payload.host}:{payload.port}.", level="ERROR")
             raise ADBError(
                 "Unable to pair with Android. Confirm the pairing address, port, and current six-digit code."
             ) from exc
@@ -81,8 +91,11 @@ class DeviceService:
             details = await asyncio.to_thread(self.android.inspect, serial)
         except ADBError as exc:
             logger.warning("device_connection_failed device_id=%s", device_id)
+            self.audit.record("device.connect_failed", f"Connection failed for {device.name}.", device_id, "ERROR")
             return self._set_status(device_id, ConnectionStatus.ERROR, self._friendly_error(device, exc))
-        return self._apply_details(device_id, serial, details)
+        connected = self._apply_details(device_id, serial, details)
+        self.audit.record("device.connected", f"Connected to {device.name} over Wi-Fi.", device_id)
+        return connected
 
     async def disconnect(self, device_id: str) -> Device:
         device = self.get(device_id)
@@ -91,7 +104,9 @@ class DeviceService:
                 await asyncio.to_thread(self.adb.disconnect, device.serial)
             except ADBError as exc:
                 return self._set_status(device_id, ConnectionStatus.ERROR, self._friendly_error(device, exc))
-        return self._set_status(device_id, ConnectionStatus.DISCONNECTED, None)
+        disconnected = self._set_status(device_id, ConnectionStatus.DISCONNECTED, None)
+        self.audit.record("device.disconnected", f"Disconnected {device.name}.", device_id)
+        return disconnected
 
     async def reboot(self, device_id: str) -> Device:
         device = self.get(device_id)
@@ -101,7 +116,9 @@ class DeviceService:
             await asyncio.to_thread(self.adb.reboot, device.serial)
         except ADBError as exc:
             return self._set_status(device_id, ConnectionStatus.ERROR, self._friendly_error(device, exc))
-        return self._set_status(device_id, ConnectionStatus.RECONNECTING, None)
+        rebooting = self._set_status(device_id, ConnectionStatus.RECONNECTING, None)
+        self.audit.record("device.rebooted", f"Requested a reboot for {device.name}.", device_id)
+        return rebooting
 
     async def delete(self, device_id: str) -> None:
         device = self.get(device_id)
@@ -111,7 +128,9 @@ class DeviceService:
             except ADBError:
                 logger.info("device_delete_disconnect_failed device_id=%s", device_id)
         with self.database.session() as session:
+            self.environments.delete_for_device(session, device_id)
             self.repository.delete(session, self._required(session, device_id))
+        self.audit.record("device.deleted", f"Removed {device.name} from the registry.", device_id)
 
     async def refresh(self, device_id: str) -> Device:
         device = self.get(device_id)
@@ -121,7 +140,9 @@ class DeviceService:
             details = await asyncio.to_thread(self.android.inspect, device.serial)
         except ADBError as exc:
             return self._set_status(device_id, ConnectionStatus.ERROR, self._friendly_error(device, exc))
-        return self._apply_details(device_id, device.serial, details)
+        refreshed = self._apply_details(device_id, device.serial, details)
+        self.audit.record("device.refreshed", f"Refreshed details for {device.name}.", device_id)
+        return refreshed
 
     def _apply_details(self, device_id: str, serial: str, details: AndroidDetails) -> Device:
         with self.database.session() as session:

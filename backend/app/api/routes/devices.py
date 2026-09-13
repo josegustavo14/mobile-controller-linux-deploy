@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from backend.app.core.auth import require_admin
 from backend.app.schemas.device import ConnectionResponse, DeviceCreate, DeviceResponse, DeviceUpdate, MessageResponse, PairRequest
 from backend.app.services.adb import ADBError
 from backend.app.services.devices import DeviceNotFoundError, DeviceService, DuplicateDeviceError
 
-router = APIRouter(prefix="/api/devices", tags=["devices"])
+router = APIRouter(prefix="/api/devices", tags=["devices"], dependencies=[Depends(require_admin)])
 
 
 def service(request: Request) -> DeviceService:
