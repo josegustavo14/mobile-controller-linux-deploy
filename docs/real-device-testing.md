@@ -2,18 +2,25 @@
 
 The application intentionally supports Wi-Fi only. Do not expose ADB or the control plane to the public internet; use a trusted LAN or a private overlay such as Tailscale.
 
-## Classic ADB over TCP
+## Classic ADB over TCP on rooted Android
 
-Before enrolling a node, verify connectivity from a trusted administrative machine:
+This method also uses no cable. In a local terminal app on the rooted Android device, enable the TCP listener:
 
 ```bash
-adb tcpip 5555
+su -c 'setprop service.adb.tcp.port 5555'
+su -c 'stop adbd'
+su -c 'start adbd'
+```
+
+Then verify connectivity from a trusted administrative machine:
+
+```bash
 adb connect DEVICE_IP:5555
 adb devices
 adb shell su -c 'whoami'
 ```
 
-The final command should report `root` when Magisk root is available. Register the same host and port in the application. Production does not require ADB on ZimaOS: the container has its own binary.
+The final command should report `root` when Magisk root is available. Register the same host and port in the application. You may need to repeat the local listener commands after restarting Android. Production does not require ADB on ZimaOS: the container has its own binary.
 
 ## Android 11+ wireless pairing
 

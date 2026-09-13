@@ -194,6 +194,7 @@ select, input { border: 1px solid #40555d; border-radius: 5px; outline: 0; color
 .login-mark { display: grid; width: 48px; height: 48px; margin-bottom: 25px; place-items: center; border: 1px solid #577b79; border-radius: 10px 10px 3px 10px; color: var(--signal); background: #1c3234; }
 .login-panel h1 { font-size: 32px; }
 .login-panel > p:not(.kicker) { color: #93a7ad; font-size: 13px; line-height: 1.65; }
+.login-panel .login-error { padding: 10px 12px; border-left: 2px solid var(--danger); color: #efaaa6; background: #281d20; font-size: 11px; }
 
 .spin { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

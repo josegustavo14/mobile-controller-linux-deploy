@@ -96,3 +96,23 @@ def test_deleting_device_removes_its_environments(tmp_path) -> None:
         ).status_code == 201
         assert client.delete(f"/api/devices/{device_id}").status_code == 204
         assert client.get("/api/environments").json() == []
+
+
+def test_failed_start_persists_error_status(tmp_path) -> None:
+    adb = fake_linux_deploy()
+    app = create_app(f"sqlite:///{tmp_path / 'failed-start.db'}", adb)
+    with TestClient(app) as client:
+        device_id = connected_device(client)
+        created = client.post(
+            "/api/environments",
+            json={"device_id": device_id, "name": "Debian", "profile": "default"},
+        )
+        environment_id = created.json()["id"]
+        del adb.commands[f"{CLI} -p default start -m"]
+
+        failed = client.post(f"/api/environments/{environment_id}/start")
+
+        assert failed.status_code == 502
+        environments = client.get("/api/environments").json()
+        assert environments[0]["status"] == "ERROR"
+        assert "Unexpected fake command" in environments[0]["last_output"]

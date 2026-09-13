@@ -1,24 +1,37 @@
 # Android Server Manager
 
-Android Server Manager is a Docker-contained control plane for rooted Android compute nodes using ADB and Linux Deploy chroots. It is designed for ZimaOS without host-installed Python, Node, or ADB.
+Android Server Manager is a self-contained control plane for rooted Android compute nodes. It connects over ADB Wi-Fi, manages existing Linux Deploy profiles, operates services inside their chroots, exposes an authenticated command terminal, and records an audit trail.
 
-## Current status
+## Features
 
-Phase 2 Wi-Fi device management is complete: in addition to the Phase 1 foundation, the control plane pairs Android 11+ wireless debugging, persists Android endpoints and ADB keys, connects through ADB over TCP, records Android hardware, kernel, and root-capability details, and supports editing, rebooting, disconnecting, and removing devices. USB transport is intentionally out of scope. Linux Deploy management is the next phase.
+- Classic ADB TCP and Android 11+ wireless pairing; USB is intentionally unsupported.
+- Persistent device registry with connect, inspect, edit, reboot, disconnect, and remove actions.
+- Android manufacturer, model, release, ABI, kernel, and root-capability inspection.
+- Existing Linux Deploy profile registration, status refresh, start, stop, and removal from the registry.
+- SysV service discovery and start, stop, or restart actions inside a chroot.
+- Authenticated command execution inside a selected Linux Deploy environment.
+- Fleet dashboard, persistent audit log, and read-only runtime diagnostics.
+- A single non-root `linux/amd64` container with bundled Android Platform Tools and a read-only root filesystem.
 
-## Run on macOS
+## Run locally
+
+Create the runtime configuration and set a long random administrator token:
+
+```bash
+cp .env.example .env
+```
+
+Then start the application:
 
 ```bash
 docker compose up --build
 ```
 
-`docker compose` works with safe defaults. Copy `.env.example` to `.env` only when you need to override them.
+Open `http://localhost:8080` and enter the `ADMIN_TOKEN` value. The health endpoint remains public at `http://localhost:8080/health`.
 
-Open `http://localhost:8080`. `http://localhost:8080/health` returns `{"status":"ok"}`.
+## Verification
 
-## Checks
-
-No Android hardware is needed:
+No Android hardware is required for the automated suite:
 
 ```bash
 make test
@@ -26,18 +39,19 @@ make lint
 make build
 ```
 
-`make build` explicitly produces `linux/amd64`, the ZimaCube target. On Apple Silicon Docker uses its standard amd64 emulation during the build.
+The tests use an in-memory ADB double. `make build` produces the `linux/amd64` ZimaCube target; Apple Silicon uses Docker's normal amd64 emulation.
 
-The device API is available under `/api/devices`: create, list, edit, or remove endpoints; pair modern wireless debugging with `/pair`; and use `/{id}/connect`, `/{id}/refresh`, `/{id}/reboot`, and `/{id}/disconnect`. The interface exposes the same workflow at the root URL.
+## Runtime model
 
-For a host Python workflow, install `backend/requirements.txt`, then run `pytest -v backend/tests` from the repository root.
+The frontend and API share port `8080`. All control APIs require `Authorization: Bearer <ADMIN_TOKEN>`. ADB keys, the SQLite database, and audit records live under `/app/data`, which maps to the local `./data` directory.
 
-## ZimaOS deployment
+The application does not install a Linux distribution. Create and configure a profile in Linux Deploy on Android first, then register the same profile name in the control plane. The default CLI path can be changed with `LINUX_DEPLOY_CLI`.
 
-Build or import this image as a custom Docker application in ZimaOS and use the Compose file. Mount persistent storage at `/app/data` and publish only port `8080` on a trusted network. The image contains FastAPI, the compiled frontend and ADB; ZimaOS itself is not modified. Use the `linux/amd64` image on ZimaCube.
+API documentation is available at `/api/docs`. Main API groups are `/api/devices`, `/api/environments`, and `/api/system`.
 
-Keep both the interface and ADB TCP off the public internet. Authentication arrives before broader device-control endpoints.
+## ZimaOS and Android setup
 
-## Real-device validation
+- [ZimaOS deployment guide](docs/zimaos-deployment.md)
+- [Real Android Wi-Fi guide](docs/real-device-testing.md)
 
-See [the real device guide](docs/real-device-testing.md).
+Keep the UI and ADB endpoints on a trusted LAN or private overlay. Never forward ports `8080`, `5555`, or a wireless-debugging connection port directly to the public internet.

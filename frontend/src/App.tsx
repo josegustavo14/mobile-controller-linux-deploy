@@ -1,7 +1,6 @@
 import {
   Activity,
   Boxes,
-  Cable,
   CheckCircle2,
   CircleAlert,
   Database,
@@ -34,7 +33,7 @@ import type { AuditLog, Dashboard, Device, Environment, ServiceInfo, SystemInfo,
 
 const navigation = [
   ["dashboard", Activity, "Dashboard"],
-  ["devices", Cable, "Devices"],
+  ["devices", Smartphone, "Devices"],
   ["environments", Boxes, "Environments"],
   ["services", MonitorCog, "Services"],
   ["terminal", TerminalSquare, "Terminal"],
@@ -79,6 +78,7 @@ export function App() {
   const [terminalUser, setTerminalUser] = useState("root");
   const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
   const [tokenInput, setTokenInput] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -111,6 +111,7 @@ export function App() {
       if (error instanceof ApiError && error.status === 401) {
         setAdminToken("");
         setLocked(true);
+        setAuthError("The saved administrator token is no longer valid.");
         setReady(true);
         return;
       }
@@ -137,10 +138,14 @@ export function App() {
     setAdminToken(tokenInput.trim());
     setBusy("login");
     try {
+      await api<SystemInfo>("/api/system/info");
+      setAuthError(null);
       await bootstrap();
       setTokenInput("");
-    } catch {
+    } catch (error) {
+      setAdminToken("");
       setLocked(true);
+      setAuthError(error instanceof Error ? error.message : "The administrator token was not accepted.");
     } finally {
       setBusy(null);
     }
@@ -353,7 +358,7 @@ export function App() {
   };
 
   if (!ready) return <LoadingScreen />;
-  if (locked) return <LoginScreen token={tokenInput} busy={busy === "login"} onChange={setTokenInput} onSubmit={login} />;
+  if (locked) return <LoginScreen token={tokenInput} busy={busy === "login"} error={authError} onChange={setTokenInput} onSubmit={login} />;
 
   return (
     <main className="shell">
@@ -395,8 +400,8 @@ function LoadingScreen() {
   return <main className="gate"><LoaderCircle className="spin" size={28} /><p>Starting control plane…</p></main>;
 }
 
-function LoginScreen({ token, busy, onChange, onSubmit }: { token: string; busy: boolean; onChange: (value: string) => void; onSubmit: (event: FormEvent) => void }) {
-  return <main className="gate"><section className="login-panel"><span className="login-mark"><LockKeyhole size={24} /></span><p className="kicker">Protected control plane</p><h1>Administrator access</h1><p>Enter the token configured on your ZimaOS server. It stays in this browser tab only.</p><form onSubmit={onSubmit}><label>Admin token<input autoFocus required type="password" value={token} onChange={(event) => onChange(event.target.value)} /></label><button className="primary-action" disabled={busy} type="submit">{busy && <LoaderCircle className="spin" size={15} />}Unlock</button></form></section></main>;
+function LoginScreen({ token, busy, error, onChange, onSubmit }: { token: string; busy: boolean; error: string | null; onChange: (value: string) => void; onSubmit: (event: FormEvent) => void }) {
+  return <main className="gate"><section className="login-panel"><span className="login-mark"><LockKeyhole size={24} /></span><p className="kicker">Protected control plane</p><h1>Administrator access</h1><p>Enter the token configured on your ZimaOS server. It stays in this browser tab only.</p>{error && <p className="login-error" role="alert">{error}</p>}<form onSubmit={onSubmit}><label>Admin token<input autoFocus required type="password" value={token} onChange={(event) => onChange(event.target.value)} /></label><button className="primary-action" disabled={busy} type="submit">{busy && <LoaderCircle className="spin" size={15} />}Unlock</button></form></section></main>;
 }
 
 function Topbar({ view, devices, onAddDevice, onAddEnvironment }: { view: View; devices: Device[]; onAddDevice: () => void; onAddEnvironment: () => void }) {
@@ -422,7 +427,7 @@ function DashboardView({ dashboard, devices, environments, onNavigate }: { dashb
 
 function DevicesView({ devices, busy, onAdd, onPair, onEdit, onRemove, onAction }: { devices: Device[]; busy: string | null; onAdd: () => void; onPair: () => void; onEdit: (device: Device) => void; onRemove: (device: Device) => void; onAction: (device: Device, action: "connect" | "disconnect" | "refresh" | "reboot") => void }) {
   if (!devices.length) return <Empty title="No Android nodes enrolled" copy="Use classic ADB on port 5555, or pair Android 11 and newer with a wireless debugging code." action="Add first device" onAction={onAdd} secondary="Pair wirelessly" onSecondary={onPair} />;
-  return <><div className="page-tools"><button className="secondary-action" type="button" onClick={onPair}><Radio size={16} />Pair wirelessly</button></div><section className="device-grid">{devices.map((device) => <article className="device-card" key={device.id}><div className="card-top"><div className="device-name"><span className="phone-icon"><Smartphone size={20} /></span><div><h2>{device.name}</h2><p>{device.manufacturer && device.model ? `${device.manufacturer} ${device.model}` : "Awaiting inspection"}</p></div></div><span className={`status ${device.connection_status.toLowerCase()}`}><i />{statusLabels[device.connection_status]}</span></div><div className="device-specs"><span><Wifi size={15} />{device.host}:{device.port}</span><span><ShieldCheck size={15} />{device.root_available === null ? "Root not checked" : device.root_available ? "Root available" : "Root unavailable"}</span>{device.android_version && <span>Android {device.android_version} · {device.cpu_abi}</span>}{device.kernel && <span>Kernel {device.kernel}</span>}</div>{device.last_error && <p className="device-error">{device.last_error}</p>}<div className="card-actions">{device.connection_status === "CONNECTED" ? <><ActionButton onClick={() => onAction(device, "refresh")} disabled={busy !== null} icon={<RefreshCw size={15} />} label="Refresh" /><ActionButton onClick={() => onAction(device, "reboot")} disabled={busy !== null} icon={<Power size={15} />} label="Reboot" /><ActionButton onClick={() => onAction(device, "disconnect")} disabled={busy !== null} label="Disconnect" /></> : <button className="connect-button" type="button" onClick={() => onAction(device, "connect")} disabled={busy !== null}>{busy === `connect-${device.id}` ? <LoaderCircle size={15} className="spin" /> : <Cable size={15} />}Connect ADB</button>}</div><div className="card-management"><button onClick={() => onEdit(device)}><Pencil size={14} />Edit</button><button className="danger-subtle" onClick={() => onRemove(device)}><Trash2 size={14} />Remove</button></div></article>)}</section></>;
+  return <><div className="page-tools"><button className="secondary-action" type="button" onClick={onPair}><Radio size={16} />Pair wirelessly</button></div><section className="device-grid">{devices.map((device) => <article className="device-card" key={device.id}><div className="card-top"><div className="device-name"><span className="phone-icon"><Smartphone size={20} /></span><div><h2>{device.name}</h2><p>{device.manufacturer && device.model ? `${device.manufacturer} ${device.model}` : "Awaiting inspection"}</p></div></div><span className={`status ${device.connection_status.toLowerCase()}`}><i />{statusLabels[device.connection_status]}</span></div><div className="device-specs"><span><Wifi size={15} />{device.host}:{device.port}</span><span><ShieldCheck size={15} />{device.root_available === null ? "Root not checked" : device.root_available ? "Root available" : "Root unavailable"}</span>{device.android_version && <span>Android {device.android_version} · {device.cpu_abi}</span>}{device.kernel && <span>Kernel {device.kernel}</span>}</div>{device.last_error && <p className="device-error">{device.last_error}</p>}<div className="card-actions">{device.connection_status === "CONNECTED" ? <><ActionButton onClick={() => onAction(device, "refresh")} disabled={busy !== null} icon={<RefreshCw size={15} />} label="Refresh" /><ActionButton onClick={() => onAction(device, "reboot")} disabled={busy !== null} icon={<Power size={15} />} label="Reboot" /><ActionButton onClick={() => onAction(device, "disconnect")} disabled={busy !== null} label="Disconnect" /></> : <button className="connect-button" type="button" onClick={() => onAction(device, "connect")} disabled={busy !== null}>{busy === `connect-${device.id}` ? <LoaderCircle size={15} className="spin" /> : <Wifi size={15} />}Connect via Wi-Fi</button>}</div><div className="card-management"><button onClick={() => onEdit(device)}><Pencil size={14} />Edit</button><button className="danger-subtle" onClick={() => onRemove(device)}><Trash2 size={14} />Remove</button></div></article>)}</section></>;
 }
 
 function EnvironmentsView({ environments, devices, canAdd, busy, onAdd, onAction, onRemove }: { environments: Environment[]; devices: Device[]; canAdd: boolean; busy: string | null; onAdd: () => void; onAction: (environment: Environment, action: "start" | "stop" | "refresh") => void; onRemove: (environment: Environment) => void }) {

@@ -92,14 +92,14 @@ class LinuxDeployService:
         try:
             output = await self._run(device, environment.profile, *command)
         except ADBError as exc:
-            failed = self._update_status(environment_id, EnvironmentStatus.ERROR, str(exc))
+            self._update_status(environment_id, EnvironmentStatus.ERROR, str(exc))
             self.audit.record(
                 f"environment.{action}_failed",
                 f"{action.title()} failed for {environment.name}.",
                 environment.device_id,
                 "ERROR",
             )
-            return failed, str(exc)
+            raise ADBError(str(exc)) from exc
         status = EnvironmentStatus.RUNNING if action == "start" else EnvironmentStatus.STOPPED
         updated = self._update_status(environment_id, status, output)
         self.audit.record(
