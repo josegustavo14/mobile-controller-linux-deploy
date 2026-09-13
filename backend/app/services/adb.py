@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 import subprocess
 from dataclasses import dataclass
 from typing import Protocol
@@ -85,7 +86,7 @@ class RealADBClient:
         return self._run("-s", serial, "shell", command)
 
     def root_shell(self, serial: str, command: str) -> str:
-        return self.shell(serial, f"su -c {command!r}")
+        return self.shell(serial, f"su -c {shlex.quote(command)}")
 
     def reboot(self, serial: str) -> None:
         self._run("-s", serial, "reboot")

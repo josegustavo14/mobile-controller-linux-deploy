@@ -48,3 +48,25 @@ def test_timeout_is_exposed_as_safe_adb_error(monkeypatch: pytest.MonkeyPatch) -
 
     with pytest.raises(ADBTimeoutError, match="did not respond"):
         client.list_devices()
+
+
+def test_root_shell_preserves_nested_quotes(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = RealADBClient("adb", 5037, 5)
+    received: list[tuple[str, ...]] = []
+
+    def capture(*args: str) -> str:
+        received.append(args)
+        return "ok"
+
+    monkeypatch.setattr(client, "_run", capture)
+    command = "printf '%s' \"$HOME\""
+
+    assert client.root_shell("192.168.15.98:5555", command) == "ok"
+    assert received == [
+        (
+            "-s",
+            "192.168.15.98:5555",
+            "shell",
+            "su -c 'printf '\"'\"'%s'\"'\"' \"$HOME\"'",
+        )
+    ]

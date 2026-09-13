@@ -37,6 +37,19 @@ class DeviceService:
         with self.database.session() as session:
             return self.repository.list(session)
 
+    def reset_transient_connections(self) -> None:
+        """A container restart always drops its in-memory ADB transport sessions."""
+        transient = {
+            ConnectionStatus.CONNECTED.value,
+            ConnectionStatus.CONNECTING.value,
+            ConnectionStatus.RECONNECTING.value,
+        }
+        with self.database.session() as session:
+            for device in self.repository.list(session):
+                if device.connection_status in transient:
+                    device.connection_status = ConnectionStatus.DISCONNECTED.value
+                    device.serial = None
+
     def get(self, device_id: str) -> Device:
         with self.database.session() as session:
             return self._required(session, device_id)

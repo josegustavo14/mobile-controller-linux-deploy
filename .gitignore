@@ -1,10 +1,50 @@
+# Local configuration and secrets
 .env
+.env.*
+!.env.example
+
+# Python environments and generated files
 .venv/
+venv/
 __pycache__/
 *.py[cod]
+*.egg-info/
 .pytest_cache/
-frontend/node_modules/
-frontend/dist/
-data/*.db
-data/*.db-*
-data/logs/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Node, Vite, and TypeScript output
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Persistent runtime state (database, logs, and private ADB keys)
+data/*
+!data/.gitkeep
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+adbkey
+adbkey.pub
+
+# IDE and operating-system metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local temporary files
+*.tmp
+*.bak
+*.log

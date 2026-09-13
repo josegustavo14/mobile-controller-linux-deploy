@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
     # repository-local volume. This keeps the persistence contract portable.
     Path("data").mkdir(parents=True, exist_ok=True)
     app.state.database.create_schema()
+    app.state.device_service.reset_transient_connections()
     logger.info("application_started")
     yield
     logger.info("application_stopped")

@@ -93,3 +93,17 @@ def test_duplicate_endpoint_is_rejected(tmp_path) -> None:
         assert client.post("/api/devices", json={"name": "one", "host": "10.0.0.8"}).status_code == 201
         duplicate = client.post("/api/devices", json={"name": "two", "host": "10.0.0.8"})
         assert duplicate.status_code == 409
+
+
+def test_restart_clears_stale_adb_connection_state(tmp_path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'restart.db'}"
+    with TestClient(create_app(database_url, fake_android())) as client:
+        created = client.post("/api/devices", json={"name": "S20+", "host": "192.168.15.98"})
+        device_id = created.json()["id"]
+        connected = client.post(f"/api/devices/{device_id}/connect")
+        assert connected.json()["device"]["connection_status"] == "CONNECTED"
+
+    with TestClient(create_app(database_url, fake_android())) as restarted_client:
+        device = restarted_client.get(f"/api/devices/{device_id}").json()
+        assert device["connection_status"] == "DISCONNECTED"
+        assert device["serial"] is None
