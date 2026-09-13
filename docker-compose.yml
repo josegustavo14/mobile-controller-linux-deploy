@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     image: android-server-manager:local
     environment:
+      HOME: /app/data
       APP_HOST: ${APP_HOST:-0.0.0.0}
       APP_PORT: ${APP_PORT:-8080}
       DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/app.db}

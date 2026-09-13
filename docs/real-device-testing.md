@@ -1,13 +1,24 @@
-# Testing a real Android node
+# Testing a real Android node over Wi-Fi
 
-The normal mode is ADB over TCP. Do not expose port 5555 to the public internet; use a trusted LAN or a private overlay such as Tailscale.
+The application intentionally supports Wi-Fi only. Do not expose ADB or the control plane to the public internet; use a trusted LAN or a private overlay such as Tailscale.
+
+## Classic ADB over TCP
 
 Before enrolling a node, verify connectivity from a trusted administrative machine:
 
 ```bash
+adb tcpip 5555
 adb connect DEVICE_IP:5555
 adb devices
 adb shell su -c 'whoami'
 ```
 
-The final command should report `root` when Magisk root is available. Phase 2 will register the same host and port in the application. Production does not require ADB on ZimaOS: the container has its own binary.
+The final command should report `root` when Magisk root is available. Register the same host and port in the application. Production does not require ADB on ZimaOS: the container has its own binary.
+
+## Android 11+ wireless pairing
+
+Open **Developer options → Wireless debugging → Pair device with pairing code** on Android. In the application, choose **Pair wirelessly** and enter the temporary pairing host, pairing port, and code.
+
+Pairing does not enroll the device. After pairing succeeds, return to the main Wireless debugging screen and note its separate IP address and connection port. Choose **Add device** and register that connection endpoint.
+
+ADB authorization keys are stored under the persistent `/app/data` volume, so rebuilding the application container does not discard the pairing.
