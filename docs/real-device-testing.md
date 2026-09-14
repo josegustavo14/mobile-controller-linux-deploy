@@ -29,3 +29,25 @@ Open **Developer options → Wireless debugging → Pair device with pairing cod
 Pairing does not enroll the device. After pairing succeeds, return to the main Wireless debugging screen and note its separate IP address and connection port. Choose **Add device** and register that connection endpoint.
 
 ADB authorization keys are stored under the persistent `/app/data` volume, so rebuilding the application container does not discard the pairing.
+
+## Testar um celular pessoal sem root
+
+Depois de autorizar o ADB por Wi-Fi e conectar o aparelho, abra **Android console**. O painel deve indicar **ADB shell available** e **Non-root device**. Nesse modo funcionam o terminal ADB, Home, Voltar, Recentes, bloqueio/despertar, volume, mídia, central de notificações, configurações rápidas, abertura de aplicativos e captura de tela.
+
+Use primeiro um comando somente de leitura:
+
+```sh
+getprop ro.build.version.release
+```
+
+Depois teste:
+
+```sh
+pm list packages -3
+df -h /sdcard
+dumpsys battery
+```
+
+O seletor `root` permanece desativado. Nenhuma dessas verificações instala arquivos, altera o sistema ou depende de Linux Deploy.
+
+Para controles do Termux e acesso remoto por Tailscale, consulte o [guia do Android Console](android-console.md).

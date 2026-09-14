@@ -1,12 +1,14 @@
 # Android Server Manager
 
-Android Server Manager is a self-contained control plane for rooted Android compute nodes. It connects over ADB Wi-Fi, manages existing Linux Deploy profiles, operates services inside their chroots, exposes an authenticated command terminal, and records an audit trail.
+Android Server Manager is a self-contained control plane for Android devices and rooted compute nodes. It connects over ADB Wi-Fi, offers direct non-root Android controls, manages existing Linux Deploy profiles, operates services inside their chroots, exposes authenticated command terminals, and records an audit trail.
 
 ## Features
 
 - Classic ADB TCP and Android 11+ wireless pairing; USB is intentionally unsupported.
 - Persistent device registry with connect, inspect, edit, reboot, disconnect, and remove actions.
 - Android manufacturer, model, release, ABI, kernel, and root-capability inspection.
+- Android Console with live battery/network telemetry, remote keys, media controls, app launcher, screenshots, and a non-root ADB shell.
+- Optional Termux bridge with Termux:API command presets on rooted nodes; opening Termux itself works without root.
 - Existing Linux Deploy profile registration, status refresh, start, stop, and removal from the registry.
 - SysV service discovery and start, stop, or restart actions inside a chroot.
 - Authenticated command execution inside a selected Linux Deploy environment.
@@ -54,5 +56,6 @@ API documentation is available at `/api/docs`. Main API groups are `/api/devices
 - [One-click ZimaOS Compose template](docker-compose.zimaos.yml)
 - [ZimaOS deployment guide](docs/zimaos-deployment.md)
 - [Real Android Wi-Fi guide](docs/real-device-testing.md)
+- [Android Console, Termux, and Tailscale guide](docs/android-console.md)
 
 Keep the UI and ADB endpoints on a trusted LAN or private overlay. Never forward ports `8080`, `5555`, or a wireless-debugging connection port directly to the public internet.
