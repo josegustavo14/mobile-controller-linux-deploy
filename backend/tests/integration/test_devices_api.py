@@ -84,6 +84,26 @@ def test_pair_edit_reboot_and_delete_device(tmp_path) -> None:
         assert paired.status_code == 200
         assert fake.paired == [("192.168.15.98:37123", "123456")]
 
+        qr_session = client.post("/api/devices/pair/qr")
+        assert qr_session.status_code == 200
+        qr = qr_session.json()
+        assert qr["service_name"].startswith("studio-")
+        assert qr["qr_payload"].startswith(f"WIFI:T:ADB;S:{qr['service_name']};P:")
+        assert qr["qr_payload"].endswith(";;")
+        assert qr["expires_in_seconds"] == 120
+
+        qr_completed = client.post(
+            "/api/devices/pair/qr/complete",
+            json={"session_id": qr["session_id"]},
+        )
+        assert qr_completed.status_code == 200
+        assert fake.paired[1][0] == qr["service_name"]
+        assert fake.paired[1][1] in qr["qr_payload"]
+        assert client.post(
+            "/api/devices/pair/qr/complete",
+            json={"session_id": qr["session_id"]},
+        ).status_code == 502
+
         created = client.post("/api/devices", json={"name": "S20+", "host": "192.168.15.98"})
         device_id = created.json()["id"]
 

@@ -14,6 +14,8 @@ from backend.app.schemas.device import (
     PackageLaunchRequest,
     PackageListResponse,
     PairRequest,
+    QRPairingCompleteRequest,
+    QRPairingSessionResponse,
     TermuxCommandRequest,
 )
 from backend.app.services.adb import ADBError
@@ -54,6 +56,26 @@ async def pair_device(payload: PairRequest, request: Request) -> MessageResponse
     except ADBError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return MessageResponse(message="Wireless debugging paired. Add the device using its connection port.")
+
+
+@router.post("/pair/qr", response_model=QRPairingSessionResponse)
+async def create_qr_pairing(request: Request) -> QRPairingSessionResponse:
+    session_id, qr_payload, service_name = service(request).create_qr_pairing_session()
+    return QRPairingSessionResponse(
+        session_id=session_id,
+        qr_payload=qr_payload,
+        service_name=service_name,
+        expires_in_seconds=service(request).QR_PAIRING_TTL,
+    )
+
+
+@router.post("/pair/qr/complete", response_model=MessageResponse)
+async def complete_qr_pairing(payload: QRPairingCompleteRequest, request: Request) -> MessageResponse:
+    try:
+        await service(request).complete_qr_pairing(payload.session_id)
+    except ADBError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return MessageResponse(message="QR pairing completed. Android can now trust this control plane.")
 
 
 @router.get("/{device_id}", response_model=DeviceResponse)

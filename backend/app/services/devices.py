@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 import shlex
+import string
+import time
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from backend.app.core.database import Database
@@ -17,6 +21,13 @@ from backend.app.services.audit import AuditService
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class QRPairingSession:
+    service_name: str
+    password: str
+    expires_at: float
+
+
 class DeviceNotFoundError(LookupError):
     pass
 
@@ -26,6 +37,7 @@ class DuplicateDeviceError(ValueError):
 
 
 class DeviceService:
+    QR_PAIRING_TTL = 120
     QUICK_ACTIONS = {
         "home": "input keyevent KEYCODE_HOME",
         "back": "input keyevent KEYCODE_BACK",
@@ -50,6 +62,7 @@ class DeviceService:
         self.environments = EnvironmentRepository()
         self.android = AndroidService(adb)
         self.audit = audit
+        self.qr_pairing_sessions: dict[str, QRPairingSession] = {}
 
     def list(self) -> list[Device]:
         with self.database.session() as session:
@@ -113,6 +126,41 @@ class DeviceService:
             raise ADBError(
                 "Unable to pair with Android. Confirm the pairing address, port, and current six-digit code."
             ) from exc
+
+    def create_qr_pairing_session(self) -> tuple[str, str, str]:
+        now = time.monotonic()
+        self.qr_pairing_sessions = {
+            session_id: session
+            for session_id, session in self.qr_pairing_sessions.items()
+            if session.expires_at > now
+        }
+        alphabet = string.ascii_letters + string.digits
+        service_name = "studio-" + "".join(secrets.choice(alphabet) for _ in range(10))
+        password = "".join(secrets.choice(alphabet) for _ in range(12))
+        session_id = secrets.token_urlsafe(32)
+        self.qr_pairing_sessions[session_id] = QRPairingSession(
+            service_name=service_name,
+            password=password,
+            expires_at=now + self.QR_PAIRING_TTL,
+        )
+        qr_payload = f"WIFI:T:ADB;S:{service_name};P:{password};;"
+        self.audit.record("adb.qr_created", "Created a temporary wireless debugging QR pairing session.")
+        return session_id, qr_payload, service_name
+
+    async def complete_qr_pairing(self, session_id: str) -> str:
+        session = self.qr_pairing_sessions.get(session_id)
+        if session is None or session.expires_at <= time.monotonic():
+            self.qr_pairing_sessions.pop(session_id, None)
+            raise ADBError("This QR pairing session expired. Generate a new QR code and scan it again.")
+        try:
+            output = await asyncio.to_thread(self.adb.pair, session.service_name, session.password)
+        except ADBError as exc:
+            raise ADBError(
+                "The phone was not discovered yet. Scan the QR code, wait a moment, and retry."
+            ) from exc
+        self.qr_pairing_sessions.pop(session_id, None)
+        self.audit.record("adb.qr_paired", "Paired wireless debugging from a QR code.")
+        return output
 
     async def connect(self, device_id: str) -> Device:
         device = self.get(device_id)

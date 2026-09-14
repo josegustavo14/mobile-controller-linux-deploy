@@ -47,6 +47,17 @@ class PairRequest(BaseModel):
         return normalized
 
 
+class QRPairingSessionResponse(BaseModel):
+    session_id: str
+    qr_payload: str
+    service_name: str
+    expires_in_seconds: int
+
+
+class QRPairingCompleteRequest(BaseModel):
+    session_id: str = Field(min_length=20, max_length=128)
+
+
 class MessageResponse(BaseModel):
     message: str
 
