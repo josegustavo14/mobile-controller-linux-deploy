@@ -1,10 +1,17 @@
 import {
   Activity,
+  AppWindow,
+  ArrowLeft,
+  BatteryCharging,
+  Bell,
   Boxes,
+  Camera,
   CheckCircle2,
   CircleAlert,
+  Clock3,
   Database,
   FileText,
+  Home,
   Link,
   LoaderCircle,
   LockKeyhole,
@@ -20,20 +27,37 @@ import {
   Server,
   Settings2,
   ShieldCheck,
+  SkipBack,
+  SkipForward,
+  SlidersHorizontal,
   Smartphone,
   Square,
+  Sun,
   TerminalSquare,
   Trash2,
+  Volume1,
+  Volume2,
+  VolumeX,
   Wifi,
   X,
 } from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { ApiError, api, getAdminToken, setAdminToken } from "./api";
-import type { AuditLog, Dashboard, Device, Environment, ServiceInfo, SystemInfo, View } from "./types";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ApiError, api, apiBlob, getAdminToken, setAdminToken } from "./api";
+import type {
+  AuditLog,
+  Dashboard,
+  Device,
+  DeviceDiagnostics,
+  Environment,
+  ServiceInfo,
+  SystemInfo,
+  View,
+} from "./types";
 
 const navigation = [
   ["dashboard", Activity, "Dashboard"],
   ["devices", Smartphone, "Devices"],
+  ["android", SlidersHorizontal, "Android console"],
   ["environments", Boxes, "Environments"],
   ["services", MonitorCog, "Services"],
   ["terminal", TerminalSquare, "Terminal"],
@@ -68,6 +92,7 @@ export function App() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [services, setServices] = useState<ServiceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState("");
   const [modal, setModal] = useState<"device" | "pair" | "environment" | null>(null);
   const [editing, setEditing] = useState<Device | null>(null);
@@ -104,6 +129,9 @@ export function App() {
       setDashboard(loadedDashboard);
       setLogs(loadedLogs);
       setSystemInfo(loadedInfo);
+      setSelectedDeviceId(
+        (current) => current || loadedDevices.find((device) => device.connection_status === "CONNECTED")?.id || "",
+      );
       setSelectedEnvironmentId((current) => current || loadedEnvironments[0]?.id || "");
       setLocked(false);
       setReady(true);
@@ -382,6 +410,7 @@ export function App() {
         <div className="rule" />
         {view === "dashboard" && <DashboardView dashboard={dashboard} devices={devices} environments={environments} onNavigate={setView} />}
         {view === "devices" && <DevicesView devices={devices} busy={busy} onAdd={openCreateDevice} onPair={() => setModal("pair")} onEdit={openEditDevice} onRemove={removeDevice} onAction={deviceAction} />}
+        {view === "android" && <AndroidConsoleView devices={devices} selectedId={selectedDeviceId} onSelect={setSelectedDeviceId} onNotice={setNotice} />}
         {view === "environments" && <EnvironmentsView environments={environments} devices={devices} canAdd={connectedRootedDevices.length > 0} busy={busy} onAdd={openCreateEnvironment} onAction={environmentAction} onRemove={removeEnvironment} />}
         {view === "services" && <ServicesView environments={environments} selectedId={selectedEnvironmentId} services={services} busy={busy} onSelect={setSelectedEnvironmentId} onLoad={loadServices} onControl={controlService} />}
         {view === "terminal" && <TerminalView environments={environments} selectedId={selectedEnvironmentId} user={terminalUser} command={terminalCommand} output={terminalOutput} busy={busy === "terminal"} onSelect={setSelectedEnvironmentId} onUser={setTerminalUser} onCommand={setTerminalCommand} onSubmit={runTerminal} onClear={() => setTerminalOutput([])} />}
@@ -408,6 +437,7 @@ function Topbar({ view, devices, onAddDevice, onAddEnvironment }: { view: View; 
   const titles: Record<View, [string, string]> = {
     dashboard: ["Fleet overview", "See what needs attention across Android and Linux Deploy."],
     devices: ["Android devices", "Manage trusted ADB endpoints on your private Wi-Fi."],
+    android: ["Android console", "Operate Android directly with safe ADB controls and a non-root shell."],
     environments: ["Linux environments", "Control registered Linux Deploy profiles on rooted nodes."],
     services: ["Service control", "Inspect and operate SysV services inside a running chroot."],
     terminal: ["Environment terminal", "Run an intentional command inside a selected Linux Deploy profile."],
@@ -428,6 +458,329 @@ function DashboardView({ dashboard, devices, environments, onNavigate }: { dashb
 function DevicesView({ devices, busy, onAdd, onPair, onEdit, onRemove, onAction }: { devices: Device[]; busy: string | null; onAdd: () => void; onPair: () => void; onEdit: (device: Device) => void; onRemove: (device: Device) => void; onAction: (device: Device, action: "connect" | "disconnect" | "refresh" | "reboot") => void }) {
   if (!devices.length) return <Empty title="No Android nodes enrolled" copy="Use classic ADB on port 5555, or pair Android 11 and newer with a wireless debugging code." action="Add first device" onAction={onAdd} secondary="Pair wirelessly" onSecondary={onPair} />;
   return <><div className="page-tools"><button className="secondary-action" type="button" onClick={onPair}><Radio size={16} />Pair wirelessly</button></div><section className="device-grid">{devices.map((device) => <article className="device-card" key={device.id}><div className="card-top"><div className="device-name"><span className="phone-icon"><Smartphone size={20} /></span><div><h2>{device.name}</h2><p>{device.manufacturer && device.model ? `${device.manufacturer} ${device.model}` : "Awaiting inspection"}</p></div></div><span className={`status ${device.connection_status.toLowerCase()}`}><i />{statusLabels[device.connection_status]}</span></div><div className="device-specs"><span><Wifi size={15} />{device.host}:{device.port}</span><span><ShieldCheck size={15} />{device.root_available === null ? "Root not checked" : device.root_available ? "Root available" : "Root unavailable"}</span>{device.android_version && <span>Android {device.android_version} · {device.cpu_abi}</span>}{device.kernel && <span>Kernel {device.kernel}</span>}</div>{device.last_error && <p className="device-error">{device.last_error}</p>}<div className="card-actions">{device.connection_status === "CONNECTED" ? <><ActionButton onClick={() => onAction(device, "refresh")} disabled={busy !== null} icon={<RefreshCw size={15} />} label="Refresh" /><ActionButton onClick={() => onAction(device, "reboot")} disabled={busy !== null} icon={<Power size={15} />} label="Reboot" /><ActionButton onClick={() => onAction(device, "disconnect")} disabled={busy !== null} label="Disconnect" /></> : <button className="connect-button" type="button" onClick={() => onAction(device, "connect")} disabled={busy !== null}>{busy === `connect-${device.id}` ? <LoaderCircle size={15} className="spin" /> : <Wifi size={15} />}Connect via Wi-Fi</button>}</div><div className="card-management"><button onClick={() => onEdit(device)}><Pencil size={14} />Edit</button><button className="danger-subtle" onClick={() => onRemove(device)}><Trash2 size={14} />Remove</button></div></article>)}</section></>;
+}
+
+type AndroidAction =
+  | "home"
+  | "back"
+  | "recent"
+  | "lock"
+  | "wake"
+  | "volume_up"
+  | "volume_down"
+  | "mute"
+  | "media_play_pause"
+  | "media_next"
+  | "media_previous"
+  | "notifications"
+  | "quick_settings"
+  | "open_settings";
+
+const androidActions: { id: AndroidAction; label: string; icon: ReactNode }[] = [
+  { id: "home", label: "Home", icon: <Home size={17} /> },
+  { id: "back", label: "Back", icon: <ArrowLeft size={17} /> },
+  { id: "recent", label: "Recent", icon: <AppWindow size={17} /> },
+  { id: "wake", label: "Wake", icon: <Sun size={17} /> },
+  { id: "lock", label: "Lock", icon: <LockKeyhole size={17} /> },
+  { id: "volume_up", label: "Volume +", icon: <Volume2 size={17} /> },
+  { id: "volume_down", label: "Volume −", icon: <Volume1 size={17} /> },
+  { id: "mute", label: "Mute", icon: <VolumeX size={17} /> },
+  { id: "media_previous", label: "Previous", icon: <SkipBack size={17} /> },
+  { id: "media_play_pause", label: "Play / pause", icon: <Play size={17} /> },
+  { id: "media_next", label: "Next", icon: <SkipForward size={17} /> },
+  { id: "notifications", label: "Notifications", icon: <Bell size={17} /> },
+  { id: "quick_settings", label: "Quick settings", icon: <SlidersHorizontal size={17} /> },
+  { id: "open_settings", label: "Settings", icon: <Settings2 size={17} /> },
+];
+
+const termuxPresets = [
+  ["Battery JSON", "termux-battery-status"],
+  ["Location", "termux-location"],
+  ["Wi-Fi info", "termux-wifi-connectioninfo"],
+  ["Sensors", "termux-sensor -l"],
+  ["Clipboard", "termux-clipboard-get"],
+  ["Torch on", "termux-torch on"],
+] as const;
+
+function formatUptime(seconds: number | null) {
+  if (seconds === null) return "Unknown";
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${days ? `${days}d ` : ""}${hours}h ${minutes}m`;
+}
+
+function AndroidConsoleView({
+  devices,
+  selectedId,
+  onSelect,
+  onNotice,
+}: {
+  devices: Device[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  const connected = devices.filter((device) => device.connection_status === "CONNECTED");
+  const selected = connected.find((device) => device.id === selectedId) ?? null;
+  const [diagnostics, setDiagnostics] = useState<DeviceDiagnostics | null>(null);
+  const [packages, setPackages] = useState<string[]>([]);
+  const [packageName, setPackageName] = useState("");
+  const [command, setCommand] = useState("");
+  const [root, setRoot] = useState(false);
+  const [output, setOutput] = useState<string[]>([]);
+  const [termuxCommand, setTermuxCommand] = useState("");
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const loadConsole = useCallback(async () => {
+    if (!selected) {
+      setDiagnostics(null);
+      setPackages([]);
+      return;
+    }
+    setBusy("refresh");
+    try {
+      const [nextDiagnostics, nextPackages] = await Promise.all([
+        api<DeviceDiagnostics>(`/api/devices/${selected.id}/diagnostics`),
+        api<{ packages: string[] }>(`/api/devices/${selected.id}/apps`),
+      ]);
+      setDiagnostics(nextDiagnostics);
+      setPackages(nextPackages.packages);
+      setPackageName((current) => nextPackages.packages.includes(current) ? current : nextPackages.packages[0] || "");
+    } catch (error) {
+      setDiagnostics(null);
+      setPackages([]);
+      onNotice(error instanceof Error ? error.message : "Could not inspect Android.");
+    } finally {
+      setBusy(null);
+    }
+  }, [onNotice, selected]);
+
+  useEffect(() => {
+    void loadConsole();
+  }, [loadConsole]);
+
+  useEffect(() => {
+    if (selected?.root_available !== true) setRoot(false);
+  }, [selected]);
+
+  useEffect(() => {
+    return () => {
+      if (screenshotUrl) URL.revokeObjectURL(screenshotUrl);
+    };
+  }, [screenshotUrl]);
+
+  const sendAction = async (action: AndroidAction) => {
+    if (!selected) return;
+    setBusy(`action-${action}`);
+    try {
+      const response = await api<{ message: string }>(`/api/devices/${selected.id}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      onNotice(response.message);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Android rejected the action.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runShell = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected || !command.trim()) return;
+    const nextCommand = command.trim();
+    setCommand("");
+    setOutput((current) => [...current, `${root ? "root" : "shell"}@${selected.name}: $ ${nextCommand}`]);
+    setBusy("shell");
+    try {
+      const response = await api<{ output: string; root: boolean }>(`/api/devices/${selected.id}/shell`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: nextCommand, root }),
+      });
+      setOutput((current) => [...current, response.output || "(command completed without output)"]);
+    } catch (error) {
+      setOutput((current) => [...current, `error: ${error instanceof Error ? error.message : "command failed"}`]);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const launchPackage = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected || !packageName) return;
+    setBusy("launch-app");
+    try {
+      const response = await api<{ message: string }>(`/api/devices/${selected.id}/apps/launch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ package: packageName }),
+      });
+      onNotice(response.message);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not open the Android app.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const openTermux = async () => {
+    if (!selected) return;
+    setBusy("open-termux");
+    try {
+      const response = await api<{ message: string }>(`/api/devices/${selected.id}/termux/open`, { method: "POST" });
+      onNotice(response.message);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not open Termux.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runTermux = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected || !termuxCommand.trim()) return;
+    setBusy("termux");
+    try {
+      const response = await api<{ message: string }>(`/api/devices/${selected.id}/termux/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: termuxCommand.trim() }),
+      });
+      setTermuxCommand("");
+      onNotice(response.message);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not start the Termux command.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const captureScreen = async () => {
+    if (!selected) return;
+    setBusy("screenshot");
+    try {
+      const image = await apiBlob(`/api/devices/${selected.id}/screenshot`);
+      setScreenshotUrl(URL.createObjectURL(image));
+      onNotice("Fresh Android screenshot captured.");
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not capture the Android screen.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!connected.length) {
+    return <Empty title="No connected Android device" copy="Connect a trusted Wi-Fi ADB endpoint first. The console never requires a USB cable." />;
+  }
+
+  return (
+    <div className="android-console">
+      <section className="console-context">
+        <label className="context-picker">
+          Android device
+          <select value={selectedId} onChange={(event) => onSelect(event.target.value)}>
+            <option value="">Select a connected device</option>
+            {connected.map((device) => <option value={device.id} key={device.id}>{device.name} · {device.host}</option>)}
+          </select>
+        </label>
+        <div className="console-context-state">
+          <span className="access-chip"><ShieldCheck size={14} />ADB shell available</span>
+          <span className={`access-chip ${selected?.root_available ? "root" : "muted"}`}>
+            {selected?.root_available ? "Root available" : "Non-root device"}
+          </span>
+          <button className="secondary-action" disabled={!selected || busy !== null} onClick={() => void loadConsole()}>
+            <RefreshCw className={busy === "refresh" ? "spin" : ""} size={15} />Refresh telemetry
+          </button>
+        </div>
+      </section>
+
+      {!selected ? <Empty title="Choose a connected device" copy="All controls run through that device's authorized ADB-over-Wi-Fi session." /> : <>
+        <section className="telemetry-strip">
+          <div className="telemetry-primary">
+            <BatteryCharging size={20} />
+            <span><strong>{diagnostics?.battery_level ?? "—"}%</strong><small>{diagnostics?.battery_status ?? "Battery unavailable"}{diagnostics?.temperature_c !== null && diagnostics?.temperature_c !== undefined ? ` · ${diagnostics.temperature_c}°C` : ""}</small></span>
+          </div>
+          <div><Wifi size={17} /><span><strong>{diagnostics?.wifi_ipv4 ?? "Not detected"}</strong><small>Wi-Fi address</small></span></div>
+          <div><Radio size={17} /><span><strong>{diagnostics?.tailscale_ipv4 ?? "Not detected"}</strong><small>Tailscale address</small></span></div>
+          <div><Clock3 size={17} /><span><strong>{formatUptime(diagnostics?.uptime_seconds ?? null)}</strong><small>Android uptime</small></span></div>
+          <div><Smartphone size={17} /><span><strong>{diagnostics?.screen_state ?? "Unknown"}</strong><small>Screen state</small></span></div>
+        </section>
+
+        <div className="console-grid">
+          <section className="control-bench">
+            <div className="bench-heading"><div><p className="kicker">Remote keys</p><h2>Android controls</h2></div><small>No root required</small></div>
+            <div className="action-pad">
+              {androidActions.map((action) => (
+                <button key={action.id} disabled={busy !== null} type="button" onClick={() => void sendAction(action.id)}>
+                  {action.icon}<span>{action.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="bench-divider" />
+            <div className="bench-heading"><div><p className="kicker">Launcher</p><h2>Installed apps</h2></div><small>{packages.length} user apps</small></div>
+            <form className="package-launcher" onSubmit={launchPackage}>
+              <select value={packageName} onChange={(event) => setPackageName(event.target.value)}>
+                {!packages.length && <option value="">No user apps reported</option>}
+                {packages.map((item) => <option value={item} key={item}>{item}</option>)}
+              </select>
+              <button disabled={!packageName || busy !== null} type="submit"><Play size={14} />Open</button>
+            </form>
+
+            <div className="bench-divider" />
+            <div className="bench-heading"><div><p className="kicker">Termux bridge</p><h2>Phone automations</h2></div><span className={`service-light ${diagnostics?.termux_installed ? "on" : "off"}`} /></div>
+            <p className="bench-copy">Opening Termux works without root. Starting commands inside Termux from ADB requires root because Termux rejects intents sent by Android's shell user.</p>
+            <button className="secondary-action bench-button" disabled={!diagnostics?.termux_installed || busy !== null} type="button" onClick={() => void openTermux()}>
+              <TerminalSquare size={15} />Open Termux
+            </button>
+            <form className="termux-form" onSubmit={runTermux}>
+              <input value={termuxCommand} onChange={(event) => setTermuxCommand(event.target.value)} placeholder="termux-battery-status" />
+              <button disabled={!selected.root_available || !diagnostics?.termux_installed || !termuxCommand.trim() || busy !== null} type="submit">Start session</button>
+            </form>
+            <div className="termux-presets" aria-label="Termux API command examples">
+              {termuxPresets.map(([label, preset]) => <button key={preset} type="button" onClick={() => setTermuxCommand(preset)}>{label}</button>)}
+            </div>
+            {!selected.root_available && <p className="capability-note"><LockKeyhole size={13} />Termux command bridge locked on this non-root phone. Use the ADB shell beside it.</p>}
+          </section>
+
+          <section className="adb-shell-panel">
+            <div className="shell-toolbar">
+              <div><p className="kicker">Direct device session</p><h2>ADB shell</h2></div>
+              <div className="shell-mode" aria-label="Shell privilege mode">
+                <button className={!root ? "active" : ""} type="button" onClick={() => setRoot(false)}>shell</button>
+                <button className={root ? "active" : ""} disabled={!selected.root_available} type="button" onClick={() => setRoot(true)}>root</button>
+              </div>
+            </div>
+            <p className="shell-safety"><ShieldCheck size={14} />The default <code>shell</code> mode works on personal phones without root after ADB authorization.</p>
+            <div className="device-terminal-output" aria-live="polite">
+              {output.length ? output.map((line, index) => <pre key={`${index}-${line.slice(0, 12)}`}>{line}</pre>) : <p>Try <code>getprop ro.build.version.release</code>, <code>df -h /sdcard</code>, or <code>pm list packages -3</code>.</p>}
+              {busy === "shell" && <span className="terminal-cursor" />}
+            </div>
+            <form className="terminal-form device-terminal-form" onSubmit={runShell}>
+              <span>$</span>
+              <input value={command} disabled={busy === "shell"} placeholder="Enter an Android shell command" onChange={(event) => setCommand(event.target.value)} />
+              <button disabled={!command.trim() || busy === "shell"} type="submit">Run</button>
+            </form>
+          </section>
+
+          <section className="screen-panel">
+            <div className="bench-heading"><div><p className="kicker">Visual check</p><h2>Device screen</h2></div><span>{diagnostics?.screen_state ?? "Unknown"}</span></div>
+            <div className="screen-canvas">
+              {screenshotUrl ? <img src={screenshotUrl} alt={`Current screen of ${selected.name}`} /> : <div><Camera size={28} /><p>Capture a still image from Android.</p></div>}
+            </div>
+            <button className="secondary-action bench-button" disabled={busy !== null} type="button" onClick={() => void captureScreen()}>
+              <Camera size={15} />{busy === "screenshot" ? "Capturing…" : "Capture screen"}
+            </button>
+            <details className="storage-details"><summary>Android storage report</summary><pre>{diagnostics?.storage || "Storage telemetry unavailable."}</pre></details>
+          </section>
+        </div>
+      </>}
+    </div>
+  );
 }
 
 function EnvironmentsView({ environments, devices, canAdd, busy, onAdd, onAction, onRemove }: { environments: Environment[]; devices: Device[]; canAdd: boolean; busy: string | null; onAdd: () => void; onAction: (environment: Environment, action: "start" | "stop" | "refresh") => void; onRemove: (environment: Environment) => void }) {

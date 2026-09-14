@@ -164,6 +164,59 @@ select, input { border: 1px solid #40555d; border-radius: 5px; outline: 0; color
 .terminal-form input { padding: 10px 0; border: 0; background: transparent; font-family: "DM Mono", monospace; font-size: 12px; }
 .terminal-form button { padding: 8px 13px; border: 0; border-radius: 4px; color: #102119; background: var(--signal); font-weight: 700; cursor: pointer; }
 
+.android-console { display: grid; gap: 16px; }
+.console-context, .control-bench, .adb-shell-panel, .screen-panel { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.console-context { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 18px; }
+.console-context-state { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.access-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid #42655f; border-radius: 4px; color: #b9e2d8; background: #182c2d; font-family: "DM Mono", monospace; font-size: 9px; }
+.access-chip.root { border-color: #756c3d; color: #e3d695; background: #292819; }
+.access-chip.muted { border-color: #3b4c52; color: #80949a; background: #142027; }
+.telemetry-strip { display: grid; grid-template-columns: 1.2fr repeat(4, 1fr); overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #142127; }
+.telemetry-strip > div { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 18px; border-right: 1px solid var(--line); color: #7f9a9d; }
+.telemetry-strip > div:last-child { border-right: 0; }
+.telemetry-strip span, .telemetry-strip strong, .telemetry-strip small { display: block; min-width: 0; }
+.telemetry-strip strong { overflow: hidden; color: #dbe7e8; font-family: "DM Mono", monospace; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.telemetry-strip small { margin-top: 4px; color: #70868c; font-size: 9px; }
+.telemetry-strip .telemetry-primary { color: var(--signal); background: #192d30; }
+.telemetry-strip .telemetry-primary strong { color: var(--signal); font-size: 20px; }
+.console-grid { display: grid; grid-template-columns: minmax(300px, .78fr) minmax(430px, 1.42fr); gap: 16px; align-items: start; }
+.control-bench { grid-row: span 2; padding: 22px; }
+.bench-heading, .shell-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.bench-heading h2, .shell-toolbar h2 { margin: 0; font-size: 17px; }
+.bench-heading small, .bench-heading > span { color: #71868c; font-family: "DM Mono", monospace; font-size: 9px; }
+.action-pad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 18px; }
+.action-pad button { display: grid; min-height: 67px; place-items: center; align-content: center; gap: 7px; border: 1px solid #34474e; border-radius: 6px; color: #aac0c3; background: #132027; font-size: 10px; font-weight: 700; cursor: pointer; }
+.action-pad button:hover { border-color: #5a7f7e; color: #dcf7ef; background: #1a3032; }
+.bench-divider { height: 1px; margin: 24px -22px; background: var(--line); }
+.package-launcher, .termux-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; margin-top: 16px; }
+.package-launcher select, .termux-form input { min-width: 0; padding: 10px 11px; font-family: "DM Mono", monospace; font-size: 10px; }
+.package-launcher button, .termux-form button { display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; border: 0; border-radius: 5px; color: #102119; background: var(--signal); font-size: 10px; font-weight: 700; cursor: pointer; }
+.termux-presets { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.termux-presets button { padding: 5px 7px; border: 1px solid #384c53; border-radius: 4px; color: #849b9f; background: #121f25; font-size: 8px; cursor: pointer; }
+.termux-presets button:hover { border-color: #567b79; color: #b9d8d3; }
+.bench-copy { margin: 13px 0; color: #879ba1; font-size: 11px; line-height: 1.65; }
+.bench-button { width: 100%; }
+.capability-note, .shell-safety { display: flex; align-items: flex-start; gap: 7px; margin: 12px 0 0; padding: 9px 10px; border-left: 2px solid #655f38; color: #ad9f68; background: #222318; font-size: 9px; line-height: 1.5; }
+.capability-note svg, .shell-safety svg { flex-shrink: 0; margin-top: 1px; }
+.adb-shell-panel { padding: 22px 22px 0; overflow: hidden; }
+.shell-mode { display: flex; padding: 3px; border: 1px solid #384c53; border-radius: 5px; background: #10191e; }
+.shell-mode button { padding: 5px 9px; border: 0; border-radius: 3px; color: #758b91; background: transparent; font-family: "DM Mono", monospace; font-size: 9px; cursor: pointer; }
+.shell-mode button.active { color: #102119; background: var(--signal); }
+.shell-safety { margin-top: 14px; border-left-color: #416963; color: #91b7b2; background: #152729; }
+.device-terminal-output { min-height: 260px; max-height: 390px; margin: 16px -22px 0; padding: 20px 22px; overflow: auto; border-top: 1px solid #2b3c42; color: #b8d8d0; background: #0c1418; }
+.device-terminal-output pre { margin: 0 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.6; }
+.device-terminal-output p { color: #60777d; font-family: "DM Mono", monospace; font-size: 10px; line-height: 1.7; }
+.device-terminal-output code { color: #9db9b4; }
+.device-terminal-form { margin: 0 -22px; }
+.screen-panel { padding: 22px; }
+.screen-canvas { display: grid; min-height: 190px; max-height: 430px; margin: 17px 0 12px; overflow: auto; place-items: center; border: 1px solid #2f4249; border-radius: 7px; background: #0c1418; }
+.screen-canvas img { display: block; max-width: 100%; max-height: 420px; object-fit: contain; }
+.screen-canvas > div { display: grid; place-items: center; color: #526a71; }
+.screen-canvas p { margin: 10px 0 0; font-size: 10px; }
+.storage-details { margin-top: 14px; border-top: 1px solid #2d3d44; color: #82979d; font-size: 10px; }
+.storage-details summary { padding: 13px 0 0; cursor: pointer; }
+.storage-details pre { max-height: 150px; margin: 12px 0 0; padding: 12px; overflow: auto; color: #95aaa7; background: #10191e; font-size: 9px; line-height: 1.6; }
+
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .settings-section { padding: 24px; }
 .settings-title { display: flex; gap: 12px; color: var(--signal); }
@@ -206,13 +259,17 @@ select, input { border: 1px solid #40555d; border-radius: 5px; outline: 0; color
   .table-head { display: none; }
   .table-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .row-actions { justify-content: flex-start; }
+  .telemetry-strip { grid-template-columns: repeat(3, 1fr); }
+  .telemetry-strip > div { border-bottom: 1px solid var(--line); }
+  .console-grid { grid-template-columns: 1fr; }
+  .control-bench { grid-row: auto; }
 }
 
 @media (max-width: 760px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar { position: static; z-index: 3; width: 100%; height: auto; display: block; padding: 14px 18px; border-right: 0; border-bottom: 1px solid #26333b; }
   .brand { width: auto; padding: 0; }
-  .sidebar nav { grid-template-columns: repeat(7, 40px); gap: 3px; margin-top: 13px; overflow-x: auto; }
+  .sidebar nav { grid-template-columns: repeat(8, 40px); gap: 3px; margin-top: 13px; overflow-x: auto; }
   .nav-item { width: 40px; min-height: 38px; justify-content: center; padding: 0; border: 0; border-bottom: 2px solid transparent; font-size: 0; }
   .nav-item.active { border-bottom-color: var(--signal); }
   .node-state { display: none; }
@@ -231,6 +288,9 @@ select, input { border: 1px solid #40555d; border-radius: 5px; outline: 0; color
   .topology-row { grid-template-columns: 38px 1fr; }
   .topology-line { display: none; }
   .topology-row > div:last-child { grid-column: 2; }
+  .console-context { align-items: stretch; flex-direction: column; }
+  .console-context-state { justify-content: flex-start; }
+  .telemetry-strip { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 480px) {
@@ -241,6 +301,10 @@ select, input { border: 1px solid #40555d; border-radius: 5px; outline: 0; color
   .activity-row { grid-template-columns: 20px 1fr; }
   .activity-row time { grid-column: 2; }
   .terminal-output { min-height: 340px; }
+  .telemetry-strip { grid-template-columns: 1fr; }
+  .telemetry-strip > div { border-right: 0; }
+  .action-pad { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .package-launcher, .termux-form { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

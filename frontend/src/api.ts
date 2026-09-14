@@ -30,3 +30,15 @@ export async function api<T>(url: string, options: RequestInit = {}): Promise<T>
   }
   return payload as T;
 }
+
+export async function apiBlob(url: string): Promise<Blob> {
+  const headers = new Headers();
+  if (adminToken) headers.set("Authorization", `Bearer ${adminToken}`);
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const detail = payload && typeof payload.detail === "string" ? payload.detail : "Could not load binary data.";
+    throw new ApiError(response.status, detail);
+  }
+  return response.blob();
+}

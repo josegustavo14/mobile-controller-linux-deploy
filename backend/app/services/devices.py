@@ -35,8 +35,14 @@ class DeviceService:
         "volume_up": "input keyevent KEYCODE_VOLUME_UP",
         "volume_down": "input keyevent KEYCODE_VOLUME_DOWN",
         "mute": "input keyevent KEYCODE_VOLUME_MUTE",
+        "media_play_pause": "input keyevent KEYCODE_MEDIA_PLAY_PAUSE",
+        "media_next": "input keyevent KEYCODE_MEDIA_NEXT",
+        "media_previous": "input keyevent KEYCODE_MEDIA_PREVIOUS",
+        "notifications": "cmd statusbar expand-notifications",
+        "quick_settings": "cmd statusbar expand-settings",
         "open_settings": "am start -a android.settings.SETTINGS",
     }
+
     def __init__(self, database: Database, adb: ADBClient, audit: AuditService) -> None:
         self.database = database
         self.adb = adb

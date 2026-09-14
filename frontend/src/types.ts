@@ -1,6 +1,14 @@
 export type Status = "CONNECTED" | "DISCONNECTED" | "CONNECTING" | "RECONNECTING" | "ERROR";
 export type EnvironmentStatus = "RUNNING" | "STOPPED" | "ERROR" | "UNKNOWN";
-export type View = "dashboard" | "devices" | "environments" | "services" | "terminal" | "logs" | "settings";
+export type View =
+  | "dashboard"
+  | "devices"
+  | "android"
+  | "environments"
+  | "services"
+  | "terminal"
+  | "logs"
+  | "settings";
 
 export type Device = {
   id: string;
@@ -67,4 +75,18 @@ export type ServiceInfo = {
   name: string;
   running: boolean | null;
   raw: string;
+};
+
+export type DeviceDiagnostics = {
+  battery_level: number | null;
+  battery_status: string | null;
+  charging: boolean | null;
+  temperature_c: number | null;
+  uptime_seconds: number | null;
+  screen_state: string | null;
+  wifi_ipv4: string | null;
+  tailscale_ipv4: string | null;
+  termux_installed: boolean;
+  tailscale_installed: boolean;
+  storage: string;
 };

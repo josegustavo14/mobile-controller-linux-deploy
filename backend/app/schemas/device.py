@@ -107,6 +107,11 @@ class DeviceActionRequest(BaseModel):
         "volume_up",
         "volume_down",
         "mute",
+        "media_play_pause",
+        "media_next",
+        "media_previous",
+        "notifications",
+        "quick_settings",
         "open_settings",
     ]
 

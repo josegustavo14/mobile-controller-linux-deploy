@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
 
 def create_app(database_url: str | None = None, adb_client: ADBClient | None = None) -> FastAPI:
     settings = get_settings().model_copy(deep=True)
-    app = FastAPI(title="Android Server Manager", version="1.0.0", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
+    app = FastAPI(title="Android Server Manager", version="1.1.0", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
     database = Database(database_url or settings.database_url)
     adb = adb_client or RealADBClient(settings.adb_path, settings.adb_server_port, settings.adb_timeout)
     audit_service = AuditService(database)
