@@ -30,6 +30,14 @@ Pairing does not enroll the device. After pairing succeeds, return to the main W
 
 ADB authorization keys are stored under the persistent `/app/data` volume, so rebuilding the application container does not discard the pairing.
 
+### Pareamento por QR Code
+
+No painel, escolha **Devices → Pair wirelessly → QR code** e gere uma sessão. No Android, abra **Opções do desenvolvedor → Depuração sem fio → Parear dispositivo com QR Code**, escaneie o código exibido e, quando o scanner fechar, clique em **Complete pairing**.
+
+O QR é temporário: o backend mantém o segredo apenas em memória por dois minutos. Ele não é salvo no banco nem escrito nos logs. Se a descoberta ainda não tiver chegado ao ZimaOS, aguarde alguns segundos e tente concluir novamente; gere outro QR somente depois que a sessão expirar.
+
+Esse método depende de multicast DNS. O telefone e o ZimaOS precisam estar na mesma LAN, sem isolamento de clientes Wi-Fi. O template do ZimaOS usa rede `host` e o backend força o mDNS embarcado do ADB para que o contêiner receba o anúncio `_adb-tls-pairing._tcp`. Para instalações Docker personalizadas, use rede `host` em um servidor Linux ou mantenha o método de seis dígitos.
+
 ## Testar um celular pessoal sem root
 
 Depois de autorizar o ADB por Wi-Fi e conectar o aparelho, abra **Android console**. O painel deve indicar **ADB shell available** e **Non-root device**. Nesse modo funcionam o terminal ADB, Home, Voltar, Recentes, bloqueio/despertar, volume, mídia, central de notificações, configurações rápidas, abertura de aplicativos e captura de tela.

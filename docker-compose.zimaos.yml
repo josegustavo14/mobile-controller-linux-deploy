@@ -14,18 +14,19 @@ services:
       APP_PORT: "8080"
       DATABASE_URL: sqlite:///./data/app.db
       ADB_PATH: /opt/android-platform-tools/adb
-      ADB_SERVER_PORT: "5037"
+      # 5038 avoids colliding with another ADB server on the ZimaOS host.
+      ADB_SERVER_PORT: "5038"
       ADB_TIMEOUT: "20"
+      ADB_MDNS_OPENSCREEN: "1"
       # Generate one with: openssl rand -hex 32
       ADMIN_TOKEN: CHANGE_ME_WITH_A_LONG_RANDOM_TOKEN
       LINUX_DEPLOY_CLI: /data/user/0/ru.meefik.linuxdeploy/files/bin/linuxdeploy
       LOG_LEVEL: INFO
       # The bundled web interface is same-origin; no ZimaOS IP is required here.
       ALLOWED_ORIGINS: http://localhost:8080
-    ports:
-      - target: 8080
-        published: "8080"
-        protocol: tcp
+    # QR pairing relies on LAN multicast DNS, which Docker bridge mode does not forward reliably.
+    # Host networking is Linux-only and appropriate for the ZimaOS deployment target.
+    network_mode: host
     volumes:
       # Short syntax is required by the current ZimaOS Compose importer.
       - android-server-manager-data:/app/data
@@ -51,6 +52,7 @@ x-casaos:
   port_map: "8080"
   scheme: http
   icon: https://raw.githubusercontent.com/josegustavo14/mobile-controller-linux-deploy/main/assets/android-server-manager-icon.png
+  version: "1.2.0"
   title:
     en_US: Android Server Manager
     pt_BR: Gerenciador de Servidor Android

@@ -16,6 +16,8 @@ Antes de colar ou enviar o arquivo, altere somente `CHANGE_ME_WITH_A_LONG_RANDOM
 
 Depois clique em **Submeter** e aguarde o download. Esta modalidade não precisa criar pastas manualmente: o volume nomeado preserva o banco SQLite, logs e chaves de pareamento ADB entre atualizações.
 
+O template usa `network_mode: host` para permitir a descoberta mDNS exigida pelo pareamento ADB via QR Code. A WebUI continua em `http://IP_DO_ZIMAOS:8080`. O servidor ADB interno usa a porta local `5038` para evitar conflito com uma eventual instalação de ADB no host; ela não deve ser exposta no roteador.
+
 As seções abaixo descrevem a alternativa por SSH, útil para repositório privado ou para quem prefere os dados em uma pasta visível dentro de `/DATA/AppData`.
 
 ## 1. Preparar o acesso

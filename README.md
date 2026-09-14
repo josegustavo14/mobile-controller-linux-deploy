@@ -4,7 +4,7 @@ Android Server Manager is a self-contained control plane for Android devices and
 
 ## Features
 
-- Classic ADB TCP and Android 11+ wireless pairing; USB is intentionally unsupported.
+- Classic ADB TCP and Android 11+ wireless pairing by six-digit code or QR code; USB is intentionally unsupported.
 - Persistent device registry with connect, inspect, edit, reboot, disconnect, and remove actions.
 - Android manufacturer, model, release, ABI, kernel, and root-capability inspection.
 - Android Console with live battery/network telemetry, remote keys, media controls, app launcher, screenshots, and a non-root ADB shell.
