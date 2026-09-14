@@ -4,6 +4,7 @@ export type View =
   | "dashboard"
   | "devices"
   | "android"
+  | "scrcpy"
   | "environments"
   | "services"
   | "terminal"
@@ -67,8 +68,39 @@ export type SystemInfo = {
   adb_path: string;
   adb_server_port: number;
   adb_timeout: number;
+  scrcpy_path: string;
+  scrcpy_viewer_port: number;
+  termux_agent_configured: boolean;
+  termux_agent_port: number;
   linux_deploy_cli: string;
   database_backend: string;
+};
+
+export type ScrcpyStatus = {
+  running: boolean;
+  device_id: string | null;
+  serial: string | null;
+  viewer_port: number;
+  password: string | null;
+  message: string;
+};
+
+export type TermuxCapabilities = {
+  sensors: string[];
+  apis: string[];
+};
+
+export type TermuxData = {
+  source: string;
+  payload: unknown;
+};
+
+export type UpdateStatus = {
+  current_version: string;
+  latest_version: string | null;
+  update_available: boolean;
+  updater_enabled: boolean;
+  message: string;
 };
 
 export type ServiceInfo = {

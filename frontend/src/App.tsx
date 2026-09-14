@@ -10,6 +10,7 @@ import {
   CircleAlert,
   Clock3,
   Database,
+  Download,
   FileText,
   Home,
   Link,
@@ -17,6 +18,7 @@ import {
   LockKeyhole,
   LogOut,
   MonitorCog,
+  MonitorPlay,
   Pencil,
   Play,
   Plus,
@@ -52,7 +54,11 @@ import type {
   DeviceDiagnostics,
   Environment,
   ServiceInfo,
+  ScrcpyStatus,
   SystemInfo,
+  TermuxCapabilities,
+  TermuxData,
+  UpdateStatus,
   View,
 } from "./types";
 
@@ -60,6 +66,7 @@ const navigation = [
   ["dashboard", Activity, "Dashboard"],
   ["devices", Smartphone, "Devices"],
   ["android", SlidersHorizontal, "Android console"],
+  ["scrcpy", MonitorPlay, "Screen control"],
   ["environments", Boxes, "Environments"],
   ["services", MonitorCog, "Services"],
   ["terminal", TerminalSquare, "Terminal"],
@@ -93,6 +100,7 @@ export function App() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [services, setServices] = useState<ServiceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState("");
@@ -110,6 +118,7 @@ export function App() {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   const selectedEnvironment = environments.find((item) => item.id === selectedEnvironmentId) ?? null;
   const connectedRootedDevices = useMemo(
@@ -137,6 +146,7 @@ export function App() {
       setSelectedEnvironmentId((current) => current || loadedEnvironments[0]?.id || "");
       setLocked(false);
       setReady(true);
+      void api<UpdateStatus>("/api/update/status").then(setUpdateStatus).catch(() => setUpdateStatus(null));
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         setAdminToken("");
@@ -184,6 +194,40 @@ export function App() {
   const logout = () => {
     setAdminToken("");
     setLocked(true);
+  };
+
+  const applyUpdate = async () => {
+    if (!updateStatus?.updater_enabled || updating) return;
+    if (!window.confirm(`Install version ${updateStatus.latest_version}? The control panel will restart, but its data volume will be preserved.`)) return;
+    setUpdating(true);
+    try {
+      const response = await api<{ message: string }>("/api/update/apply", { method: "POST" });
+      setNotice(response.message);
+      const previousVersion = updateStatus.current_version;
+      let sawOffline = false;
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        try {
+          const health = await fetch("/health", { cache: "no-store" });
+          if (!health.ok) {
+            sawOffline = true;
+            continue;
+          }
+          const info = await api<SystemInfo>("/api/system/info");
+          if (sawOffline || info.version !== previousVersion) {
+            window.location.reload();
+            return;
+          }
+        } catch {
+          sawOffline = true;
+        }
+      }
+      setNotice("The update is still running. Reload this page in a moment.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not start the application update.");
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const openCreateDevice = () => {
@@ -408,16 +452,18 @@ export function App() {
 
       <section className="workspace">
         <Topbar view={view} devices={devices} onAddDevice={openCreateDevice} onAddEnvironment={openCreateEnvironment} />
+        {updateStatus?.update_available && <UpdateBanner status={updateStatus} updating={updating} onUpdate={() => void applyUpdate()} />}
         {notice && <Notice message={notice} onClose={() => setNotice(null)} />}
         <div className="rule" />
         {view === "dashboard" && <DashboardView dashboard={dashboard} devices={devices} environments={environments} onNavigate={setView} />}
         {view === "devices" && <DevicesView devices={devices} busy={busy} onAdd={openCreateDevice} onPair={() => setModal("pair")} onEdit={openEditDevice} onRemove={removeDevice} onAction={deviceAction} />}
         {view === "android" && <AndroidConsoleView devices={devices} selectedId={selectedDeviceId} onSelect={setSelectedDeviceId} onNotice={setNotice} />}
+        {view === "scrcpy" && <ScrcpyView devices={devices} selectedId={selectedDeviceId} onSelect={setSelectedDeviceId} onNotice={setNotice} />}
         {view === "environments" && <EnvironmentsView environments={environments} devices={devices} canAdd={connectedRootedDevices.length > 0} busy={busy} onAdd={openCreateEnvironment} onAction={environmentAction} onRemove={removeEnvironment} />}
         {view === "services" && <ServicesView environments={environments} selectedId={selectedEnvironmentId} services={services} busy={busy} onSelect={setSelectedEnvironmentId} onLoad={loadServices} onControl={controlService} />}
         {view === "terminal" && <TerminalView environments={environments} selectedId={selectedEnvironmentId} user={terminalUser} command={terminalCommand} output={terminalOutput} busy={busy === "terminal"} onSelect={setSelectedEnvironmentId} onUser={setTerminalUser} onCommand={setTerminalCommand} onSubmit={runTerminal} onClear={() => setTerminalOutput([])} />}
         {view === "logs" && <LogsView logs={logs} devices={devices} onRefresh={() => void refreshMeta()} />}
-        {view === "settings" && <SettingsView info={systemInfo} tokenPresent={Boolean(getAdminToken())} onLogout={logout} />}
+        {view === "settings" && <SettingsView info={systemInfo} update={updateStatus} updating={updating} tokenPresent={Boolean(getAdminToken())} onUpdate={() => void applyUpdate()} onLogout={logout} />}
       </section>
 
       {modal === "device" && <DeviceModal editing={editing} form={deviceForm} busy={busy === "save-device"} onChange={setDeviceForm} onClose={() => setModal(null)} onSubmit={saveDevice} />}
@@ -440,6 +486,7 @@ function Topbar({ view, devices, onAddDevice, onAddEnvironment }: { view: View; 
     dashboard: ["Fleet overview", "See what needs attention across Android and Linux Deploy."],
     devices: ["Android devices", "Manage trusted ADB endpoints on your private Wi-Fi."],
     android: ["Android console", "Operate Android directly with safe ADB controls and a non-root shell."],
+    scrcpy: ["Screen control", "See and operate Android interactively through scrcpy over Wi-Fi."],
     environments: ["Linux environments", "Control registered Linux Deploy profiles on rooted nodes."],
     services: ["Service control", "Inspect and operate SysV services inside a running chroot."],
     terminal: ["Environment terminal", "Run an intentional command inside a selected Linux Deploy profile."],
@@ -451,6 +498,10 @@ function Topbar({ view, devices, onAddDevice, onAddEnvironment }: { view: View; 
 
 function Notice({ message, onClose }: { message: string; onClose: () => void }) {
   return <div className="notice" role="status">{message}<button type="button" aria-label="Dismiss message" onClick={onClose}><X size={16} /></button></div>;
+}
+
+function UpdateBanner({ status, updating, onUpdate }: { status: UpdateStatus; updating: boolean; onUpdate: () => void }) {
+  return <section className="update-banner" role="status"><div><Download size={20} /><span><strong>Version {status.latest_version} is available</strong><small>{status.updater_enabled ? "Your data and configuration will be preserved during the restart." : "Enable the updater service in the ZimaOS Compose file to install it here."}</small></span></div><button className="primary-action" type="button" disabled={!status.updater_enabled || updating} onClick={onUpdate}>{updating && <LoaderCircle className="spin" size={15} />}{updating ? "Updating…" : "Update now"}</button></section>;
 }
 
 function DashboardView({ dashboard, devices, environments, onNavigate }: { dashboard: Dashboard | null; devices: Device[]; environments: Environment[]; onNavigate: (view: View) => void }) {
@@ -532,6 +583,8 @@ function AndroidConsoleView({
   const [root, setRoot] = useState(false);
   const [output, setOutput] = useState<string[]>([]);
   const [termuxCommand, setTermuxCommand] = useState("");
+  const [termuxCapabilities, setTermuxCapabilities] = useState<TermuxCapabilities | null>(null);
+  const [termuxData, setTermuxData] = useState<TermuxData | null>(null);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -565,6 +618,8 @@ function AndroidConsoleView({
 
   useEffect(() => {
     if (selected?.root_available !== true) setRoot(false);
+    setTermuxCapabilities(null);
+    setTermuxData(null);
   }, [selected]);
 
   useEffect(() => {
@@ -675,6 +730,39 @@ function AndroidConsoleView({
     }
   };
 
+  const connectTermuxAgent = async () => {
+    if (!selected) return;
+    setBusy("termux-agent");
+    try {
+      const capabilities = await api<TermuxCapabilities>(`/api/termux-agent/${selected.id}/capabilities`);
+      setTermuxCapabilities(capabilities);
+      setTermuxData(null);
+      onNotice(`Termux:API connected. ${capabilities.sensors.length} sensors detected.`);
+    } catch (error) {
+      setTermuxCapabilities(null);
+      onNotice(error instanceof Error ? error.message : "Could not reach the Termux:API agent.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const readTermux = async (kind: "sensor" | "api", name: string) => {
+    if (!selected) return;
+    setBusy(`termux-${kind}-${name}`);
+    try {
+      const result = await api<TermuxData>(`/api/termux-agent/${selected.id}/${kind}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      setTermuxData(result);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not read Termux:API data.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   if (!connected.length) {
     return <Empty title="No connected Android device" copy="Connect a trusted Wi-Fi ADB endpoint first. The console never requires a USB cable." />;
   }
@@ -779,10 +867,101 @@ function AndroidConsoleView({
             </button>
             <details className="storage-details"><summary>Android storage report</summary><pre>{diagnostics?.storage || "Storage telemetry unavailable."}</pre></details>
           </section>
+
+          <section className="termux-agent-panel">
+            <div className="bench-heading"><div><p className="kicker">Personal phone · no root</p><h2>Termux:API sensors</h2></div><span className={`access-chip ${termuxCapabilities ? "root" : "muted"}`}>{termuxCapabilities ? "Agent online" : "Agent not checked"}</span></div>
+            <p className="bench-copy">The read-only agent runs inside Termux, where the Termux:API plug-in permits access. It detects this phone's sensors and creates only the buttons that are actually available.</p>
+            <button className="secondary-action" disabled={busy !== null} type="button" onClick={() => void connectTermuxAgent()}><Radio size={15} />{busy === "termux-agent" ? "Detecting…" : "Connect and detect sensors"}</button>
+            {termuxCapabilities && <div className="sensor-workbench">
+              <div><strong>Device information</strong><div className="sensor-buttons">{termuxCapabilities.apis.map((name) => <button key={name} disabled={busy !== null} type="button" onClick={() => void readTermux("api", name)}>{name}</button>)}</div></div>
+              <div><strong>Detected sensors ({termuxCapabilities.sensors.length})</strong><div className="sensor-buttons">{termuxCapabilities.sensors.length ? termuxCapabilities.sensors.map((name) => <button key={name} disabled={busy !== null} type="button" onClick={() => void readTermux("sensor", name)}>{name}</button>) : <span>No sensors were reported by Termux:API.</span>}</div></div>
+            </div>}
+            {termuxData && <div className="sensor-readout"><span>Latest reading · {termuxData.source}</span><pre>{JSON.stringify(termuxData.payload, null, 2)}</pre></div>}
+          </section>
         </div>
       </>}
     </div>
   );
+}
+
+function ScrcpyView({
+  devices,
+  selectedId,
+  onSelect,
+  onNotice,
+}: {
+  devices: Device[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  const connected = devices.filter((device) => device.connection_status === "CONNECTED");
+  const selected = connected.find((device) => device.id === selectedId) ?? null;
+  const [status, setStatus] = useState<ScrcpyStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      setStatus(await api<ScrcpyStatus>("/api/scrcpy/status"));
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not read the scrcpy session.");
+    }
+  }, [onNotice]);
+
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
+
+  const start = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const next = await api<ScrcpyStatus>(`/api/scrcpy/${selected.id}/start`, { method: "POST" });
+      setStatus(next);
+      onNotice("scrcpy started. Enter the session password in the viewer if requested.");
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not start scrcpy.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const stop = async () => {
+    setBusy(true);
+    try {
+      setStatus(await api<ScrcpyStatus>("/api/scrcpy/stop", { method: "POST" }));
+      onNotice("scrcpy session stopped.");
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not stop scrcpy.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const viewerUrl = useMemo(() => {
+    if (!status?.running) return null;
+    const url = new URL(window.location.href);
+    url.protocol = "http:";
+    url.port = String(status.viewer_port);
+    url.pathname = "/vnc.html";
+    url.search = "?autoconnect=true&resize=scale&reconnect=true";
+    url.hash = "";
+    return url.toString();
+  }, [status]);
+
+  if (!connected.length) return <Empty title="No connected Android device" copy="Connect the phone through wireless ADB before opening its interactive screen." />;
+
+  return <div className="scrcpy-workspace">
+    <section className="scrcpy-toolbar">
+      <label className="context-picker">Android device<select value={selectedId} disabled={Boolean(status?.running)} onChange={(event) => onSelect(event.target.value)}><option value="">Select a connected device</option>{connected.map((device) => <option value={device.id} key={device.id}>{device.name} · {device.host}</option>)}</select></label>
+      <div><span className={`access-chip ${status?.running ? "root" : "muted"}`}>{status?.running ? `Live · ${status.serial}` : "Viewer stopped"}</span>{status?.running ? <button className="secondary-action" disabled={busy} type="button" onClick={() => void stop()}><Square size={14} />Stop screen</button> : <button className="primary-action" disabled={!selected || busy} type="button" onClick={() => void start()}>{busy ? <LoaderCircle className="spin" size={15} /> : <MonitorPlay size={16} />}Start screen control</button>}</div>
+    </section>
+    {status?.running && viewerUrl ? <>
+      <section className="scrcpy-session-key"><ShieldCheck size={17} /><span><strong>Private viewer password</strong><small>Enter this in noVNC when it asks. A new password is generated for every session.</small></span><code>{status.password}</code></section>
+      {window.location.protocol === "https:" && <p className="scrcpy-warning">The viewer uses HTTP on port {status.viewer_port}. Open the ZimaOS app over HTTP or configure a reverse proxy for this port to avoid browser mixed-content blocking.</p>}
+      <section className="scrcpy-stage"><iframe title="Interactive Android screen" src={viewerUrl} allow="clipboard-read; clipboard-write" /></section>
+    </> : <section className="scrcpy-empty"><MonitorPlay size={44} /><h2>Interactive Android control</h2><p>scrcpy mirrors video and sends touch, keyboard, mouse, clipboard, and navigation input through the existing ADB-over-Wi-Fi connection. Root and USB are not required.</p><small>Only one viewer session runs at a time. Keep port 6080 limited to your LAN or Tailnet.</small></section>}
+  </div>;
 }
 
 function EnvironmentsView({ environments, devices, canAdd, busy, onAdd, onAction, onRemove }: { environments: Environment[]; devices: Device[]; canAdd: boolean; busy: string | null; onAdd: () => void; onAction: (environment: Environment, action: "start" | "stop" | "refresh") => void; onRemove: (environment: Environment) => void }) {
@@ -811,9 +990,9 @@ function ActivityList({ logs, devices = [], expanded = false }: { logs: AuditLog
   return <div className={`activity-list ${expanded ? "expanded" : ""}`}>{logs.map((entry) => <div className="activity-row" key={entry.id}>{entry.level === "ERROR" ? <CircleAlert className="activity-icon error" size={17} /> : <CheckCircle2 className="activity-icon" size={17} />}<div><strong>{entry.message}</strong><small>{entry.action}{entry.device_id ? ` · ${devices.find((device) => device.id === entry.device_id)?.name ?? entry.device_id.slice(0, 8)}` : ""}</small></div><time dateTime={entry.created_at}>{relativeTime(entry.created_at)}</time></div>)}</div>;
 }
 
-function SettingsView({ info, tokenPresent, onLogout }: { info: SystemInfo | null; tokenPresent: boolean; onLogout: () => void }) {
+function SettingsView({ info, update, updating, tokenPresent, onUpdate, onLogout }: { info: SystemInfo | null; update: UpdateStatus | null; updating: boolean; tokenPresent: boolean; onUpdate: () => void; onLogout: () => void }) {
   if (!info) return <Empty title="Settings unavailable" copy="Runtime information could not be loaded." />;
-  return <div className="settings-grid"><section className="settings-section"><div className="settings-title"><ShieldCheck size={20} /><div><h2>Access control</h2><p>API requests use a Bearer administrator token.</p></div></div><dl><div><dt>Authentication</dt><dd>{info.authentication_enabled ? "Enabled" : "Disabled"}</dd></div><div><dt>Browser token</dt><dd>{tokenPresent ? "Loaded for this tab" : "Not required"}</dd></div></dl>{tokenPresent && <button className="secondary-action" onClick={onLogout}><LogOut size={15} />Lock session</button>}</section><section className="settings-section"><div className="settings-title"><Wifi size={20} /><div><h2>ADB over Wi-Fi</h2><p>Transport settings supplied by the container environment.</p></div></div><dl><div><dt>Binary</dt><dd><code>{info.adb_path}</code></dd></div><div><dt>Server port</dt><dd>{info.adb_server_port}</dd></div><div><dt>Timeout</dt><dd>{info.adb_timeout}s</dd></div></dl></section><section className="settings-section"><div className="settings-title"><Server size={20} /><div><h2>Linux Deploy</h2><p>CLI invoked through rooted ADB shell.</p></div></div><dl><div><dt>CLI path</dt><dd><code>{info.linux_deploy_cli}</code></dd></div></dl></section><section className="settings-section"><div className="settings-title"><Database size={20} /><div><h2>Application</h2><p>Read-only diagnostics. Change values in `.env` and restart.</p></div></div><dl><div><dt>Version</dt><dd>{info.version}</dd></div><div><dt>Database</dt><dd>{info.database_backend}</dd></div></dl></section></div>;
+  return <div className="settings-grid"><section className="settings-section"><div className="settings-title"><ShieldCheck size={20} /><div><h2>Access control</h2><p>API requests use a Bearer administrator token.</p></div></div><dl><div><dt>Authentication</dt><dd>{info.authentication_enabled ? "Enabled" : "Disabled"}</dd></div><div><dt>Browser token</dt><dd>{tokenPresent ? "Loaded for this tab" : "Not required"}</dd></div></dl>{tokenPresent && <button className="secondary-action" onClick={onLogout}><LogOut size={15} />Lock session</button>}</section><section className="settings-section"><div className="settings-title"><Wifi size={20} /><div><h2>ADB over Wi-Fi</h2><p>Transport settings supplied by the container environment.</p></div></div><dl><div><dt>Binary</dt><dd><code>{info.adb_path}</code></dd></div><div><dt>Server port</dt><dd>{info.adb_server_port}</dd></div><div><dt>Timeout</dt><dd>{info.adb_timeout}s</dd></div></dl></section><section className="settings-section"><div className="settings-title"><MonitorPlay size={20} /><div><h2>Phone integrations</h2><p>Browser screen control and read-only Termux sensor bridge.</p></div></div><dl><div><dt>scrcpy viewer</dt><dd>Port {info.scrcpy_viewer_port}</dd></div><div><dt>Termux agent</dt><dd>{info.termux_agent_configured ? `Configured · port ${info.termux_agent_port}` : "Token not configured"}</dd></div></dl></section><section className="settings-section"><div className="settings-title"><Server size={20} /><div><h2>Linux Deploy</h2><p>CLI invoked through rooted ADB shell.</p></div></div><dl><div><dt>CLI path</dt><dd><code>{info.linux_deploy_cli}</code></dd></div></dl></section><section className="settings-section"><div className="settings-title"><Download size={20} /><div><h2>Application updates</h2><p>Checks the repository manifest and preserves the persistent volume.</p></div></div><dl><div><dt>Installed</dt><dd>{info.version}</dd></div><div><dt>Latest</dt><dd>{update?.latest_version ?? "Check unavailable"}</dd></div><div><dt>Updater</dt><dd>{update?.updater_enabled ? "Ready" : "Not configured"}</dd></div></dl>{update?.update_available && <button className="primary-action" disabled={!update.updater_enabled || updating} onClick={onUpdate}>{updating && <LoaderCircle className="spin" size={15} />}{updating ? "Updating…" : `Install ${update.latest_version}`}</button>}</section><section className="settings-section"><div className="settings-title"><Database size={20} /><div><h2>Application data</h2><p>Read-only runtime diagnostics.</p></div></div><dl><div><dt>Database</dt><dd>{info.database_backend}</dd></div></dl></section></div>;
 }
 
 function Empty({ title, copy, action, onAction, secondary, onSecondary, disabled = false }: { title: string; copy: string; action?: string; onAction?: () => void; secondary?: string; onSecondary?: () => void; disabled?: boolean }) {

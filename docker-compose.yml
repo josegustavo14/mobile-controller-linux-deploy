@@ -14,12 +14,21 @@ services:
       ADB_SERVER_PORT: ${ADB_SERVER_PORT:-5037}
       ADB_TIMEOUT: ${ADB_TIMEOUT:-15}
       ADB_MDNS_OPENSCREEN: ${ADB_MDNS_OPENSCREEN:-1}
+      SCRCPY_PATH: ${SCRCPY_PATH:-/opt/scrcpy/scrcpy}
+      SCRCPY_VIEWER_PORT: ${SCRCPY_VIEWER_PORT:-6080}
+      TERMUX_AGENT_PORT: ${TERMUX_AGENT_PORT:-8765}
+      TERMUX_AGENT_TOKEN: ${TERMUX_AGENT_TOKEN:-}
+      UPDATE_MANIFEST_URL: ${UPDATE_MANIFEST_URL:-https://raw.githubusercontent.com/josegustavo14/mobile-controller-linux-deploy/main/version.json}
+      UPDATER_URL: ${UPDATER_URL:-}
+      UPDATER_TOKEN: ${UPDATER_TOKEN:-}
+      UPDATER_IMAGE: ${UPDATER_IMAGE:-ghcr.io/josegustavo14/mobile-controller-linux-deploy:latest}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?Set ADMIN_TOKEN in .env before starting the control plane}
       LINUX_DEPLOY_CLI: ${LINUX_DEPLOY_CLI:-/data/user/0/ru.meefik.linuxdeploy/files/bin/linuxdeploy}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
     ports:
       - "${APP_PORT:-8080}:8080"
+      - "${SCRCPY_VIEWER_PORT:-6080}:6080"
     volumes:
       - ./data:/app/data
     restart: unless-stopped

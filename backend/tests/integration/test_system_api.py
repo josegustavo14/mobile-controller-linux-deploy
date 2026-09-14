@@ -38,6 +38,17 @@ def test_system_info_does_not_expose_admin_token(tmp_path) -> None:
     app = create_app(f"sqlite:///{tmp_path / 'info.db'}", FakeADBClient())
     with TestClient(app) as client:
         body = client.get("/api/system/info").json()
-        assert body["version"] == "1.2.0"
+        assert body["version"] == "1.3.0"
         assert body["database_backend"] == "sqlite"
         assert "admin_token" not in body
+        assert "termux_agent_token" not in body
+
+
+def test_scrcpy_status_is_idle_until_an_authenticated_session_starts(tmp_path) -> None:
+    app = create_app(f"sqlite:///{tmp_path / 'scrcpy.db'}", FakeADBClient())
+    with TestClient(app) as client:
+        status = client.get("/api/scrcpy/status")
+        assert status.status_code == 200
+        assert status.json()["running"] is False
+        assert status.json()["password"] is None
+        assert status.json()["viewer_port"] == 6080

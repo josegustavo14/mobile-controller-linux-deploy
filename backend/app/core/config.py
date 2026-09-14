@@ -13,6 +13,17 @@ class Settings(BaseSettings):
     adb_path: str = "/opt/android-platform-tools/adb"
     adb_server_port: int = Field(default=5037, ge=1, le=65535)
     adb_timeout: float = Field(default=15.0, gt=0)
+    scrcpy_path: str = "/opt/scrcpy/scrcpy"
+    scrcpy_viewer_port: int = Field(default=6080, ge=1, le=65535)
+    termux_agent_port: int = Field(default=8765, ge=1, le=65535)
+    termux_agent_token: str = ""
+    update_manifest_url: str = (
+        "https://raw.githubusercontent.com/josegustavo14/"
+        "mobile-controller-linux-deploy/main/version.json"
+    )
+    updater_url: str = ""
+    updater_token: str = ""
+    updater_image: str = "ghcr.io/josegustavo14/mobile-controller-linux-deploy:latest"
     admin_token: str = ""
     linux_deploy_cli: str = "/data/user/0/ru.meefik.linuxdeploy/files/bin/linuxdeploy"
     log_level: str = "INFO"

@@ -8,14 +8,21 @@ RUN npm run build
 
 FROM python:3.12-slim-bookworm AS runtime
 ARG PLATFORM_TOOLS_VERSION=35.0.2
+ARG SCRCPY_VERSION=4.1
+ARG SCRCPY_SHA256=ad56ae8bfeedf41e824945c11dbf55fcb092b3e615b9b486f48a50e30d389635
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/android-platform-tools:${PATH}" ADB_PATH=/opt/android-platform-tools/adb
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates curl unzip \
+    && apt-get install --no-install-recommends -y ca-certificates curl novnc unzip websockify x11vnc xvfb \
     && curl --fail --location --retry 3 "https://dl.google.com/android/repository/platform-tools_r${PLATFORM_TOOLS_VERSION}-linux.zip" --output /tmp/platform-tools.zip \
     && unzip -q /tmp/platform-tools.zip -d /opt \
     && mv /opt/platform-tools /opt/android-platform-tools \
+    && curl --fail --location --retry 3 "https://github.com/Genymobile/scrcpy/releases/download/v${SCRCPY_VERSION}/scrcpy-linux-x86_64-v${SCRCPY_VERSION}.tar.gz" --output /tmp/scrcpy.tar.gz \
+    && echo "${SCRCPY_SHA256}  /tmp/scrcpy.tar.gz" | sha256sum --check --strict \
+    && tar -xzf /tmp/scrcpy.tar.gz -C /opt \
+    && mv "/opt/scrcpy-linux-x86_64-v${SCRCPY_VERSION}" /opt/scrcpy \
     && rm -f /tmp/platform-tools.zip \
+    && rm -f /tmp/scrcpy.tar.gz \
     && apt-get purge -y --auto-remove curl unzip \
     && rm -rf /var/lib/apt/lists/*
 COPY backend/requirements.txt ./backend/requirements.txt

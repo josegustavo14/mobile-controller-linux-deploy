@@ -32,6 +32,10 @@ async def info(request: Request) -> SystemInfoResponse:
         adb_path=settings.adb_path,
         adb_server_port=settings.adb_server_port,
         adb_timeout=settings.adb_timeout,
+        scrcpy_path=settings.scrcpy_path,
+        scrcpy_viewer_port=settings.scrcpy_viewer_port,
+        termux_agent_configured=bool(settings.termux_agent_token),
+        termux_agent_port=settings.termux_agent_port,
         linux_deploy_cli=settings.linux_deploy_cli,
         database_backend=settings.database_url.split(":", maxsplit=1)[0],
     )

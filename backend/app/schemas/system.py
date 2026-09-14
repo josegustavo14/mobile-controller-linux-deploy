@@ -27,5 +27,9 @@ class SystemInfoResponse(BaseModel):
     adb_path: str
     adb_server_port: int
     adb_timeout: float
+    scrcpy_path: str
+    scrcpy_viewer_port: int
+    termux_agent_configured: bool
+    termux_agent_port: int
     linux_deploy_cli: str
     database_backend: str
