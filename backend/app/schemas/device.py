@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -76,3 +77,69 @@ class DeviceResponse(BaseModel):
 class ConnectionResponse(BaseModel):
     device: DeviceResponse
     message: str
+
+
+class DeviceShellRequest(BaseModel):
+    command: str = Field(min_length=1, max_length=4000)
+    root: bool = False
+
+    @field_validator("command")
+    @classmethod
+    def strip_command(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("must not be empty")
+        return normalized
+
+
+class DeviceShellResponse(BaseModel):
+    output: str
+    root: bool
+
+
+class DeviceActionRequest(BaseModel):
+    action: Literal[
+        "home",
+        "back",
+        "recent",
+        "lock",
+        "wake",
+        "volume_up",
+        "volume_down",
+        "mute",
+        "open_settings",
+    ]
+
+
+class PackageLaunchRequest(BaseModel):
+    package: str = Field(min_length=3, max_length=255, pattern=r"^[A-Za-z0-9._]+$")
+
+
+class TermuxCommandRequest(BaseModel):
+    command: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("command")
+    @classmethod
+    def strip_termux_command(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("must not be empty")
+        return normalized
+
+
+class DeviceDiagnosticsResponse(BaseModel):
+    battery_level: int | None
+    battery_status: str | None
+    charging: bool | None
+    temperature_c: float | None
+    uptime_seconds: int | None
+    screen_state: str | None
+    wifi_ipv4: str | None
+    tailscale_ipv4: str | None
+    termux_installed: bool
+    tailscale_installed: bool
+    storage: str
+
+
+class PackageListResponse(BaseModel):
+    packages: list[str]

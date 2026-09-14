@@ -27,6 +27,7 @@ class ADBClient(Protocol):
     def disconnect(self, serial: str) -> None: ...
     def shell(self, serial: str, command: str) -> str: ...
     def root_shell(self, serial: str, command: str) -> str: ...
+    def screenshot(self, serial: str) -> bytes: ...
     def reboot(self, serial: str) -> None: ...
 
 
@@ -88,6 +89,25 @@ class RealADBClient:
     def root_shell(self, serial: str, command: str) -> str:
         return self.shell(serial, f"su -c {shlex.quote(command)}")
 
+    def screenshot(self, serial: str) -> bytes:
+        try:
+            result = subprocess.run(
+                [self.path, "-P", str(self.server_port), "-s", serial, "exec-out", "screencap", "-p"],
+                capture_output=True,
+                check=False,
+                timeout=self.timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ADBTimeoutError("Android did not return a screenshot before the ADB timeout.") from exc
+        except OSError as exc:
+            raise ADBError("ADB is unavailable inside the application container.") from exc
+        if result.returncode != 0:
+            detail = result.stderr.decode(errors="replace").strip()
+            raise ADBError(detail or "Android could not capture the screen.")
+        if not result.stdout.startswith(b"\x89PNG"):
+            raise ADBError("Android returned an invalid screenshot.")
+        return result.stdout
+
     def reboot(self, serial: str) -> None:
         self._run("-s", serial, "reboot")
 
@@ -104,6 +124,7 @@ class FakeADBClient:
         self.disconnected: list[str] = []
         self.rebooted: list[str] = []
         self.error: ADBError | None = None
+        self.screenshot_data = b"\x89PNG\r\n\x1a\n"
 
     def _check(self) -> None:
         if self.error:
@@ -142,6 +163,10 @@ class FakeADBClient:
         if command == "id -u":
             return "0"
         return self.shell(serial, command)
+
+    def screenshot(self, serial: str) -> bytes:
+        self._check()
+        return self.screenshot_data
 
     def reboot(self, serial: str) -> None:
         self._check()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shlex
 from datetime import UTC, datetime
 
 from backend.app.core.database import Database
@@ -25,6 +26,17 @@ class DuplicateDeviceError(ValueError):
 
 
 class DeviceService:
+    QUICK_ACTIONS = {
+        "home": "input keyevent KEYCODE_HOME",
+        "back": "input keyevent KEYCODE_BACK",
+        "recent": "input keyevent KEYCODE_APP_SWITCH",
+        "lock": "input keyevent KEYCODE_SLEEP",
+        "wake": "input keyevent KEYCODE_WAKEUP",
+        "volume_up": "input keyevent KEYCODE_VOLUME_UP",
+        "volume_down": "input keyevent KEYCODE_VOLUME_DOWN",
+        "mute": "input keyevent KEYCODE_VOLUME_MUTE",
+        "open_settings": "am start -a android.settings.SETTINGS",
+    }
     def __init__(self, database: Database, adb: ADBClient, audit: AuditService) -> None:
         self.database = database
         self.adb = adb
@@ -157,6 +169,113 @@ class DeviceService:
         self.audit.record("device.refreshed", f"Refreshed details for {device.name}.", device_id)
         return refreshed
 
+    async def diagnostics(self, device_id: str):
+        device = self._connected(device_id)
+        assert device.serial is not None
+        details = await asyncio.to_thread(self.android.diagnostics, device.serial)
+        self.audit.record("device.diagnostics", f"Read live diagnostics from {device.name}.", device.id)
+        return details
+
+    async def shell(self, device_id: str, command: str, root: bool = False) -> str:
+        device = self._connected(device_id)
+        assert device.serial is not None
+        if root and device.root_available is not True:
+            raise ADBError("This command requested root, but root access is not available on the device.")
+        runner = self.adb.root_shell if root else self.adb.shell
+        output = await asyncio.to_thread(runner, device.serial, command)
+        self.audit.record(
+            "device.shell_root" if root else "device.shell",
+            f"Executed an {'root' if root else 'ADB shell'} command on {device.name}.",
+            device.id,
+        )
+        return output[-100000:]
+
+    async def quick_action(self, device_id: str, action: str) -> str:
+        device = self._connected(device_id)
+        assert device.serial is not None
+        command = self.QUICK_ACTIONS[action]
+        output = await asyncio.to_thread(self.adb.shell, device.serial, command)
+        self.audit.record("device.action", f"Ran {action.replace('_', ' ')} on {device.name}.", device.id)
+        return output
+
+    async def list_packages(self, device_id: str) -> list[str]:
+        device = self._connected(device_id)
+        assert device.serial is not None
+        output = await asyncio.to_thread(self.adb.shell, device.serial, "pm list packages -3")
+        return sorted(line.removeprefix("package:").strip() for line in output.splitlines() if line.strip())
+
+    async def launch_package(self, device_id: str, package: str) -> str:
+        device = self._connected(device_id)
+        assert device.serial is not None
+        command = shlex.join(["monkey", "-p", package, "-c", "android.intent.category.LAUNCHER", "1"])
+        output = await asyncio.to_thread(self.adb.shell, device.serial, command)
+        if "No activities found" in output or "monkey aborted" in output.lower():
+            raise ADBError(f"Android could not find a launchable activity for {package}.")
+        self.audit.record("device.app_launched", f"Opened {package} on {device.name}.", device.id)
+        return output
+
+    async def open_termux(self, device_id: str) -> str:
+        device = self._connected(device_id)
+        assert device.serial is not None
+        installed = await asyncio.to_thread(self.adb.shell, device.serial, "pm path com.termux")
+        if not installed.strip().startswith("package:"):
+            raise ADBError("Termux is not installed on this Android device.")
+        output = await asyncio.to_thread(
+            self.adb.shell,
+            device.serial,
+            "monkey -p com.termux -c android.intent.category.LAUNCHER 1",
+        )
+        self.audit.record("termux.opened", f"Opened Termux on {device.name}.", device.id)
+        return output
+
+    async def run_termux(self, device_id: str, command: str) -> str:
+        device = self._connected(device_id)
+        assert device.serial is not None
+        if device.root_available is not True:
+            raise ADBError(
+                "Termux blocks RUN_COMMAND intents from the non-root ADB shell. Use the ADB shell terminal instead."
+            )
+        installed = await asyncio.to_thread(self.adb.shell, device.serial, "pm path com.termux")
+        if not installed.strip().startswith("package:"):
+            raise ADBError("Termux is not installed on this Android device.")
+        intent = shlex.join(
+            [
+                "am",
+                "startservice",
+                "--user",
+                "0",
+                "-n",
+                "com.termux/com.termux.app.RunCommandService",
+                "-a",
+                "com.termux.RUN_COMMAND",
+                "--es",
+                "com.termux.RUN_COMMAND_PATH",
+                "/data/data/com.termux/files/usr/bin/bash",
+                "--es",
+                "com.termux.RUN_COMMAND_STDIN",
+                command,
+                "--es",
+                "com.termux.RUN_COMMAND_WORKDIR",
+                "/data/data/com.termux/files/home",
+                "--ez",
+                "com.termux.RUN_COMMAND_BACKGROUND",
+                "false",
+                "--es",
+                "com.termux.RUN_COMMAND_SESSION_ACTION",
+                "0",
+            ]
+        )
+        output = await asyncio.to_thread(self.adb.root_shell, device.serial, intent)
+        self.audit.record("termux.command", f"Started a Termux session on {device.name}.", device.id)
+        return output
+
+    async def screenshot(self, device_id: str) -> bytes:
+        device = self._connected(device_id)
+        assert device.serial is not None
+        image = await asyncio.to_thread(self.adb.screenshot, device.serial)
+        self.audit.record("device.screenshot", f"Captured the screen of {device.name}.", device.id)
+        return image
+
     def _apply_details(self, device_id: str, serial: str, details: AndroidDetails) -> Device:
         with self.database.session() as session:
             device = self._required(session, device_id)
@@ -169,6 +288,12 @@ class DeviceService:
             session.flush()
             logger.info("device_connected device_id=%s", device_id)
             return device
+
+    def _connected(self, device_id: str) -> Device:
+        device = self.get(device_id)
+        if device.connection_status != ConnectionStatus.CONNECTED.value or not device.serial:
+            raise ADBError("Connect the Android device before using remote controls.")
+        return device
 
     def _set_status(self, device_id: str, status: ConnectionStatus, error: str | None) -> Device:
         with self.database.session() as session:
