@@ -61,6 +61,7 @@ def create_app(database_url: str | None = None, adb_client: ADBClient | None = N
         audit_service,
         settings.scrcpy_path,
         settings.adb_path,
+        settings.adb_server_port,
         settings.scrcpy_viewer_port,
     )
     app.state.termux_agent_service = TermuxAgentService(

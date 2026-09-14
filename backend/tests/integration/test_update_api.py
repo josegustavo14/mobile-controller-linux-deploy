@@ -21,7 +21,7 @@ def test_update_status_and_apply_are_exposed_without_leaking_token(tmp_path) -> 
         status = client.get("/api/update/status")
         assert status.status_code == 200
         assert status.json() == {
-            "current_version": "1.3.0",
+            "current_version": "1.3.1",
             "latest_version": "1.4.0",
             "update_available": True,
             "updater_enabled": True,

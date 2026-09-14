@@ -35,11 +35,13 @@ class ScrcpyService:
         audit: AuditService,
         scrcpy_path: str,
         adb_path: str,
+        adb_server_port: int,
         viewer_port: int,
     ) -> None:
         self.audit = audit
         self.scrcpy_path = scrcpy_path
         self.adb_path = adb_path
+        self.adb_server_port = adb_server_port
         self.viewer_port = viewer_port
         self.processes: list[subprocess.Popen[bytes]] = []
         self.log_handle: BinaryIO | None = None
@@ -55,7 +57,15 @@ class ScrcpyService:
         log_path = Path("/tmp/android-server-manager-scrcpy.log")
         self.log_handle = log_path.open("ab", buffering=0)
         environment = os.environ.copy()
-        environment.update({"DISPLAY": ":99", "ADB": self.adb_path, "HOME": os.environ.get("HOME", "/app/data")})
+        environment.update(
+            {
+                "DISPLAY": ":99",
+                "ADB": self.adb_path,
+                "ADB_SERVER_SOCKET": f"tcp:127.0.0.1:{self.adb_server_port}",
+                "ANDROID_ADB_SERVER_PORT": str(self.adb_server_port),
+                "HOME": os.environ.get("HOME", "/app/data"),
+            }
+        )
         try:
             self._spawn(["Xvfb", ":99", "-screen", "0", "1280x800x24", "-nolisten", "tcp"], environment)
             self._wait_for_x_server()
@@ -68,6 +78,7 @@ class ScrcpyService:
                     "5900",
                     "-listen",
                     "localhost",
+                    "-no6",
                     "-forever",
                     "-shared",
                     "-passwd",

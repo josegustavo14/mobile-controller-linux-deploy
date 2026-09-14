@@ -38,7 +38,7 @@ def test_system_info_does_not_expose_admin_token(tmp_path) -> None:
     app = create_app(f"sqlite:///{tmp_path / 'info.db'}", FakeADBClient())
     with TestClient(app) as client:
         body = client.get("/api/system/info").json()
-        assert body["version"] == "1.3.0"
+        assert body["version"] == "1.3.1"
         assert body["database_backend"] == "sqlite"
         assert "admin_token" not in body
         assert "termux_agent_token" not in body

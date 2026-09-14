@@ -84,7 +84,7 @@ x-casaos:
   port_map: "8080"
   scheme: http
   icon: https://raw.githubusercontent.com/josegustavo14/mobile-controller-linux-deploy/main/assets/android-server-manager-icon.png
-  version: "1.3.0"
+  version: "1.3.1"
   title:
     en_US: Android Server Manager
     pt_BR: Gerenciador de Servidor Android
