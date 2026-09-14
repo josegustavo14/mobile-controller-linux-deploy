@@ -959,7 +959,7 @@ function ScrcpyView({
     {status?.running && viewerUrl ? <>
       <section className="scrcpy-session-key"><ShieldCheck size={17} /><span><strong>Private viewer password</strong><small>Enter this in noVNC when it asks. A new password is generated for every session.</small></span><code>{status.password}</code></section>
       {window.location.protocol === "https:" && <p className="scrcpy-warning">The viewer uses HTTP on port {status.viewer_port}. Open the ZimaOS app over HTTP or configure a reverse proxy for this port to avoid browser mixed-content blocking.</p>}
-      <section className="scrcpy-stage"><iframe title="Interactive Android screen" src={viewerUrl} allow="clipboard-read; clipboard-write" /></section>
+      <section className="scrcpy-stage"><iframe title="Interactive Android screen" src={viewerUrl} allow="fullscreen; clipboard-read; clipboard-write" allowFullScreen /></section>
     </> : <section className="scrcpy-empty"><MonitorPlay size={44} /><h2>Interactive Android control</h2><p>scrcpy mirrors video and sends touch, keyboard, mouse, clipboard, and navigation input through the existing ADB-over-Wi-Fi connection. Root and USB are not required.</p><small>Only one viewer session runs at a time. Keep port 6080 limited to your LAN or Tailnet.</small></section>}
   </div>;
 }
