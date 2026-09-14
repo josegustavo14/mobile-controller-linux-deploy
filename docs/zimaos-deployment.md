@@ -134,13 +134,29 @@ Se o Linux Deploy estiver instalado em outro caminho, ajuste `LINUX_DEPLOY_CLI` 
 
 ## Habilitar atualização pelo painel
 
-O arquivo `docker-compose.zimaos.yml` completo já inclui o serviço auxiliar. Se o importador gráfico tiver ignorado o segundo contêiner, clone ou atualize o repositório por SSH, edite os três tokens dentro desse arquivo e execute uma vez:
+O arquivo `docker-compose.zimaos.yml` completo já inclui o serviço auxiliar. Se o importador gráfico tiver ignorado o segundo contêiner, clone ou atualize o repositório por SSH e edite os três tokens dentro desse arquivo. Valide antes de interromper o aplicativo:
 
 ```bash
 cd /DATA/AppData/android-server-manager
 sudo docker compose -f docker-compose.zimaos.yml config --quiet
+```
+
+Se a versão anterior foi criada pelo importador gráfico, confirme primeiro que ela usa o volume nomeado esperado:
+
+```bash
+sudo docker inspect android-server-manager \
+  --format '{{range .Mounts}}{{.Name}} -> {{.Destination}}{{println}}{{end}}'
+```
+
+Deve aparecer `android-server-manager-data -> /app/data`. Depois faça a migração única: remova **somente o contêiner**, nunca o volume, e suba o Compose completo.
+
+```bash
+sudo docker stop android-server-manager
+sudo docker rm android-server-manager
 sudo docker compose -f docker-compose.zimaos.yml up -d
 ```
+
+Não use `docker compose down -v` e não marque a opção de apagar dados no ZimaOS. O volume nomeado existente será conectado ao novo contêiner.
 
 O painel consulta `version.json` no GitHub. Quando a versão publicada for maior que a instalada, aparece uma faixa **Version … is available**. Clique em **Update now**, confirme e aguarde: o Watchtower baixa somente a imagem `ghcr.io/josegustavo14/mobile-controller-linux-deploy:latest`, recria o contêiner com a mesma configuração e o navegador reconecta quando a versão nova responde.
 
