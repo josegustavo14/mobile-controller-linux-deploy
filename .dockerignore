@@ -14,3 +14,5 @@ frontend/dist
 npm-debug.log*
 data
 docs
+
+docker-compose.zimaos copy.yml

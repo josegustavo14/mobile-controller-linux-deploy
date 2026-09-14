@@ -42,3 +42,15 @@ services:
 volumes:
   android-server-manager-data:
     name: android-server-manager-data
+
+# ZimaOS/CasaOS dashboard metadata. The icon is served directly from this repository.
+x-casaos:
+  id: android-server-manager
+  main: android-server-manager
+  index: /
+  port_map: "8080"
+  scheme: http
+  icon: https://raw.githubusercontent.com/josegustavo14/mobile-controller-linux-deploy/main/assets/android-server-manager-icon.png
+  title:
+    en_US: Android Server Manager
+    pt_BR: Gerenciador de Servidor Android

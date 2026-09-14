@@ -6,6 +6,12 @@ Este guia instala o Android Server Manager a partir do código-fonte. O ZimaOS n
 
 O arquivo [`docker-compose.zimaos.yml`](../docker-compose.zimaos.yml) foi preparado para a tela **Importar → Docker Compose** do ZimaOS. Ele baixa a imagem pronta de `ghcr.io/josegustavo14/mobile-controller-linux-deploy:latest` e cria automaticamente o volume persistente `android-server-manager-data`.
 
+O mesmo arquivo inclui os metadados `x-casaos` da WebUI e o ícone do aplicativo. Se precisar informar o ícone manualmente no ZimaOS, use esta URL:
+
+```text
+https://raw.githubusercontent.com/josegustavo14/mobile-controller-linux-deploy/main/assets/android-server-manager-icon.png
+```
+
 Antes de colar ou enviar o arquivo, altere somente `CHANGE_ME_WITH_A_LONG_RANDOM_TOKEN` para um token produzido por `openssl rand -hex 32`.
 
 Depois clique em **Submeter** e aguarde o download. Esta modalidade não precisa criar pastas manualmente: o volume nomeado preserva o banco SQLite, logs e chaves de pareamento ADB entre atualizações.
