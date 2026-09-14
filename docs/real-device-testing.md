@@ -58,4 +58,4 @@ dumpsys battery
 
 O seletor `root` permanece desativado. Nenhuma dessas verificações instala arquivos, altera o sistema ou depende de Linux Deploy.
 
-Para controles do Termux e acesso remoto por Tailscale, consulte o [guia do Android Console](android-console.md).
+Para sensores Termux:API sem root, controle visual com scrcpy e acesso remoto por Tailscale, consulte o [guia do Android Console](android-console.md).

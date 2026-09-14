@@ -8,11 +8,14 @@ Android Server Manager is a self-contained control plane for Android devices and
 - Persistent device registry with connect, inspect, edit, reboot, disconnect, and remove actions.
 - Android manufacturer, model, release, ABI, kernel, and root-capability inspection.
 - Android Console with live battery/network telemetry, remote keys, media controls, app launcher, screenshots, and a non-root ADB shell.
-- Optional Termux bridge with Termux:API command presets on rooted nodes; opening Termux itself works without root.
+- Interactive scrcpy screen control in the browser through a private noVNC session; no USB or root required.
+- Read-only Termux:API agent for personal phones, with buttons generated from the sensors and APIs detected on that device; no root required.
+- Optional direct Termux command bridge on rooted nodes; opening Termux itself works without root.
 - Existing Linux Deploy profile registration, status refresh, start, stop, and removal from the registry.
 - SysV service discovery and start, stop, or restart actions inside a chroot.
 - Authenticated command execution inside a selected Linux Deploy environment.
 - Fleet dashboard, persistent audit log, and read-only runtime diagnostics.
+- GitHub version notification and an authenticated in-app update button for ZimaOS deployments.
 - A single non-root `linux/amd64` container with bundled Android Platform Tools and a read-only root filesystem.
 
 ## Run locally
@@ -45,11 +48,11 @@ The tests use an in-memory ADB double. `make build` produces the `linux/amd64` Z
 
 ## Runtime model
 
-The frontend and API share port `8080`. All control APIs require `Authorization: Bearer <ADMIN_TOKEN>`. ADB keys, the SQLite database, and audit records live under `/app/data`, which maps to the local `./data` directory.
+The frontend and API share port `8080`; the optional scrcpy viewer uses port `6080`. All control APIs require `Authorization: Bearer <ADMIN_TOKEN>`. ADB keys, the SQLite database, and audit records live under `/app/data`, which maps to the local `./data` directory.
 
 The application does not install a Linux distribution. Create and configure a profile in Linux Deploy on Android first, then register the same profile name in the control plane. The default CLI path can be changed with `LINUX_DEPLOY_CLI`.
 
-API documentation is available at `/api/docs`. Main API groups are `/api/devices`, `/api/environments`, and `/api/system`.
+API documentation is available at `/api/docs`. Main API groups include `/api/devices`, `/api/environments`, `/api/scrcpy`, `/api/termux-agent`, `/api/update`, and `/api/system`.
 
 ## ZimaOS and Android setup
 

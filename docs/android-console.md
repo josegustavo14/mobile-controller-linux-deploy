@@ -42,9 +42,50 @@ Existe uma limitação de segurança importante: o serviço `RUN_COMMAND` do Ter
 
 Essa separação é intencional; não há uma configuração legítima do ADB que transforme `shell` no usuário privado do Termux em um aparelho comum. Consulte a documentação oficial do [RUN_COMMAND Intent](https://github.com/termux/termux-app/wiki/RUN_COMMAND-Intent) e da [Termux:API](https://github.com/termux/termux-api).
 
+### Sensores e Termux:API sem root
+
+Para um celular pessoal sem root, o projeto inclui `termux/asm-agent.py`. Ele deve ser executado **dentro do Termux**, usando o mesmo UID autorizado pelo plug-in Termux:API. O agente é somente leitura: lista sensores e expõe bateria, Wi-Fi, localização, informações de câmera e áudio quando os comandos correspondentes estiverem instalados. Ele não aceita comandos arbitrários.
+
+No Termux do celular:
+
+```sh
+pkg update
+pkg install python termux-api curl
+mkdir -p "$HOME/.local/share/android-server-manager"
+curl -fL https://raw.githubusercontent.com/josegustavo14/mobile-controller-linux-deploy/main/termux/asm-agent.py \
+  -o "$HOME/.local/share/android-server-manager/asm-agent.py"
+chmod 700 "$HOME/.local/share/android-server-manager/asm-agent.py"
+```
+
+Gere um segredo com pelo menos 16 caracteres e use exatamente o mesmo valor em `TERMUX_AGENT_TOKEN` no ZimaOS:
+
+```sh
+export ASM_AGENT_TOKEN='COLOQUE_UM_TOKEN_LONGO_E_ALEATORIO'
+python "$HOME/.local/share/android-server-manager/asm-agent.py"
+```
+
+Mantenha essa sessão aberta durante o teste. Para rodar em segundo plano após validar:
+
+```sh
+termux-wake-lock
+nohup env ASM_AGENT_TOKEN='COLOQUE_O_MESMO_TOKEN' \
+  python "$HOME/.local/share/android-server-manager/asm-agent.py" \
+  > "$HOME/.local/share/android-server-manager/agent.log" 2>&1 &
+```
+
+Cadastre no painel um endereço do telefone que o ZimaOS consiga alcançar — IP da LAN ou IP Tailscale. Abra **Android console → Termux:API sensors → Connect and detect sensors**. O painel consulta `termux-sensor -l` e cria um botão para cada sensor realmente anunciado pelo aparelho. O Android pode pedir permissões na primeira leitura.
+
+Proteja a porta TCP `8765`: deixe-a apenas na LAN/Tailnet e mantenha o token longo. O agente compara o token em tempo constante, não segue redirecionamentos no backend e limita o tamanho das respostas.
+
+## Controle de tela com scrcpy
+
+Abra **Screen control**, selecione um dispositivo ADB já conectado e pressione **Start screen control**. O servidor inicia scrcpy 4.1 numa tela virtual, publica essa tela por noVNC e gera uma senha nova de oito caracteres para a sessão. Digite a senha mostrada pelo painel quando o visualizador solicitar.
+
+Esse fluxo permite imagem, mouse, teclado e toque pelo navegador usando somente a conexão ADB Wi-Fi existente; não precisa de USB, root nem aplicativo extra no Android. Somente uma sessão pode ficar ativa. A porta TCP `6080` deve permanecer restrita à LAN ou Tailnet. Se o painel estiver atrás de HTTPS, publique também `6080` em HTTPS por um proxy reverso; navegadores bloqueiam um iframe HTTP dentro de uma página HTTPS.
+
 ## Tailscale: o que funciona e o que exige cuidado
 
-O painel web funciona normalmente pelo Tailnet. Instale Tailscale no ZimaOS, acesse `http://NOME-MAGICDNS-DO-ZIMA:8080` ou `http://IP-TAILSCALE-DO-ZIMA:8080` e permita na política ACL somente os usuários/dispositivos administrativos para a porta TCP `8080`.
+O painel web funciona normalmente pelo Tailnet. Instale Tailscale no ZimaOS, acesse `http://NOME-MAGICDNS-DO-ZIMA:8080` ou `http://IP-TAILSCALE-DO-ZIMA:8080` e permita na política ACL somente os usuários/dispositivos administrativos para as portas TCP `8080` e, se usar scrcpy, `6080`. Para o agente Termux, permita que o ZimaOS alcance o telefone na porta `8765`.
 
 O ADB possui dois cenários diferentes:
 

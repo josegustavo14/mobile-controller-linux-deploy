@@ -12,11 +12,13 @@ O mesmo arquivo inclui os metadados `x-casaos` da WebUI e o ícone do aplicativo
 https://raw.githubusercontent.com/josegustavo14/mobile-controller-linux-deploy/main/assets/android-server-manager-icon.png
 ```
 
-Antes de colar ou enviar o arquivo, altere somente `CHANGE_ME_WITH_A_LONG_RANDOM_TOKEN` para um token produzido por `openssl rand -hex 32`.
+Antes de colar ou enviar o arquivo, substitua os três marcadores por valores diferentes produzidos por `openssl rand -hex 32`: `ADMIN_TOKEN`, `TERMUX_AGENT_TOKEN` e `UPDATER_TOKEN`. O token do Termux deve ser repetido no agente do celular; o token de atualização deve ser repetido no serviço Watchtower.
 
 Depois clique em **Submeter** e aguarde o download. Esta modalidade não precisa criar pastas manualmente: o volume nomeado preserva o banco SQLite, logs e chaves de pareamento ADB entre atualizações.
 
-O template usa `network_mode: host` para permitir a descoberta mDNS exigida pelo pareamento ADB via QR Code. A WebUI continua em `http://IP_DO_ZIMAOS:8080`. O servidor ADB interno usa a porta local `5038` para evitar conflito com uma eventual instalação de ADB no host; ela não deve ser exposta no roteador.
+O template usa `network_mode: host` para permitir a descoberta mDNS exigida pelo pareamento ADB via QR Code. A WebUI continua em `http://IP_DO_ZIMAOS:8080` e o visualizador scrcpy em `http://IP_DO_ZIMAOS:6080`. O servidor ADB interno usa a porta local `5038` para evitar conflito com uma eventual instalação de ADB no host; ela não deve ser exposta no roteador.
+
+O segundo serviço do template é o atualizador local. Algumas versões da tela de importação do ZimaOS avisam que importam somente o primeiro contêiner. Nesse caso o aplicativo funciona, mas mostra **Updater not configured** e desabilita o botão. Para habilitá-lo, use uma vez a alternativa por SSH abaixo e execute o arquivo completo com `docker compose`; as atualizações seguintes serão feitas pelo botão, sem nova instalação.
 
 As seções abaixo descrevem a alternativa por SSH, útil para repositório privado ou para quem prefere os dados em uma pasta visível dentro de `/DATA/AppData`.
 
@@ -66,6 +68,14 @@ DATABASE_URL=sqlite:///./data/app.db
 ADB_PATH=/opt/android-platform-tools/adb
 ADB_SERVER_PORT=5037
 ADB_TIMEOUT=20
+SCRCPY_PATH=/opt/scrcpy/scrcpy
+SCRCPY_VIEWER_PORT=6080
+TERMUX_AGENT_PORT=8765
+TERMUX_AGENT_TOKEN=COLOQUE_AQUI_OUTRO_TOKEN_LONGO_E_ALEATORIO
+UPDATE_MANIFEST_URL=https://raw.githubusercontent.com/josegustavo14/mobile-controller-linux-deploy/main/version.json
+UPDATER_URL=
+UPDATER_TOKEN=
+UPDATER_IMAGE=ghcr.io/josegustavo14/mobile-controller-linux-deploy:latest
 ADMIN_TOKEN=COLOQUE_AQUI_UM_TOKEN_LONGO_E_ALEATORIO
 LINUX_DEPLOY_CLI=/data/user/0/ru.meefik.linuxdeploy/files/bin/linuxdeploy
 LOG_LEVEL=INFO
@@ -122,7 +132,28 @@ Siga o [guia do Android real](real-device-testing.md) para ativar ou parear o AD
 
 Se o Linux Deploy estiver instalado em outro caminho, ajuste `LINUX_DEPLOY_CLI` no `.env` e recrie o contêiner.
 
-## Atualização
+## Habilitar atualização pelo painel
+
+O arquivo `docker-compose.zimaos.yml` completo já inclui o serviço auxiliar. Se o importador gráfico tiver ignorado o segundo contêiner, clone ou atualize o repositório por SSH, edite os três tokens dentro desse arquivo e execute uma vez:
+
+```bash
+cd /DATA/AppData/android-server-manager
+sudo docker compose -f docker-compose.zimaos.yml config --quiet
+sudo docker compose -f docker-compose.zimaos.yml up -d
+```
+
+O painel consulta `version.json` no GitHub. Quando a versão publicada for maior que a instalada, aparece uma faixa **Version … is available**. Clique em **Update now**, confirme e aguarde: o Watchtower baixa somente a imagem `ghcr.io/josegustavo14/mobile-controller-linux-deploy:latest`, recria o contêiner com a mesma configuração e o navegador reconecta quando a versão nova responde.
+
+O banco, as chaves ADB e os logs ficam no volume `android-server-manager-data`, portanto não são substituídos. O atualizador monta `/var/run/docker.sock`, mas sua API usa token, fica vinculada apenas a `127.0.0.1:8090` e monitora somente o contêiner `android-server-manager`.
+
+Confirme que o serviço auxiliar está pronto:
+
+```bash
+sudo docker ps --filter name=android-server-manager-updater
+sudo docker logs --tail=100 android-server-manager-updater
+```
+
+## Atualização manual da instalação por código-fonte
 
 Envie a nova versão dos arquivos e execute:
 
@@ -149,8 +180,8 @@ Guarde as cópias fora do disco do sistema. Para restaurar, pare o serviço, rec
 
 ## Rede e segurança
 
-- Não encaminhe no roteador as portas `8080`, `5555` ou portas dinâmicas do ADB.
+- Não encaminhe no roteador as portas `8080`, `6080`, `8765`, `5555` ou portas dinâmicas do ADB.
 - Use LAN confiável ou uma VPN privada, sem isolamento entre ZimaOS e Android.
 - O ADB server usa `5037` apenas dentro do contêiner; essa porta não é publicada.
 - O terminal executa comandos no chroot com o usuário selecionado. Proteja o `ADMIN_TOKEN` e bloqueie a sessão ao terminar.
-- O contêiner roda sem root, sem capabilities, com `no-new-privileges` e filesystem raiz somente leitura.
+- O contêiner principal roda sem root, sem capabilities, com `no-new-privileges` e filesystem raiz somente leitura. Apenas o Watchtower recebe o socket Docker necessário para recriar o aplicativo durante uma atualização.
