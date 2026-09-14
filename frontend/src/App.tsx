@@ -21,6 +21,7 @@ import {
   Play,
   Plus,
   Power,
+  QrCode as QrCodeIcon,
   Radio,
   RefreshCw,
   RotateCcw,
@@ -41,6 +42,7 @@ import {
   Wifi,
   X,
 } from "lucide-react";
+import QRCode from "qrcode";
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, api, apiBlob, getAdminToken, setAdminToken } from "./api";
 import type {
@@ -419,7 +421,7 @@ export function App() {
       </section>
 
       {modal === "device" && <DeviceModal editing={editing} form={deviceForm} busy={busy === "save-device"} onChange={setDeviceForm} onClose={() => setModal(null)} onSubmit={saveDevice} />}
-      {modal === "pair" && <PairModal form={pairForm} busy={busy === "pair"} onChange={setPairForm} onClose={() => setModal(null)} onSubmit={pairDevice} />}
+      {modal === "pair" && <PairModal form={pairForm} busy={busy === "pair"} onChange={setPairForm} onClose={() => setModal(null)} onSubmit={pairDevice} onNotice={setNotice} />}
       {modal === "environment" && <EnvironmentModal devices={connectedRootedDevices} form={environmentForm} busy={busy === "create-environment"} onChange={setEnvironmentForm} onClose={() => setModal(null)} onSubmit={createEnvironment} />}
     </main>
   );
@@ -834,8 +836,110 @@ function DeviceModal({ editing, form, busy, onChange, onClose, onSubmit }: { edi
   return <ModalShell titleId="device-modal-title" onClose={onClose}><p className="kicker">Wi-Fi endpoint</p><h2 id="device-modal-title">{editing ? "Edit Android device" : "Add Android device"}</h2><p className="modal-copy">Use the connection address shown by wireless debugging, or port 5555 for classic ADB over TCP.</p><form onSubmit={onSubmit}><label>Name<input required value={form.name} placeholder="S20+" onChange={(event) => onChange({ ...form, name: event.target.value })} /></label><label>Host<input required value={form.host} placeholder="192.168.1.30" onChange={(event) => onChange({ ...form, host: event.target.value })} /></label><label>ADB connection port<input required type="number" min="1" max="65535" value={form.port} onChange={(event) => onChange({ ...form, port: event.target.value })} /></label><FormActions busy={busy} label={editing ? "Save changes" : "Add device"} onCancel={onClose} /></form></ModalShell>;
 }
 
-function PairModal({ form, busy, onChange, onClose, onSubmit }: { form: PairForm; busy: boolean; onChange: (form: PairForm) => void; onClose: () => void; onSubmit: (event: FormEvent) => void }) {
-  return <ModalShell titleId="pair-modal-title" onClose={onClose}><p className="kicker">Android 11 or newer</p><h2 id="pair-modal-title">Pair wireless debugging</h2><p className="modal-copy">Open Wireless debugging → Pair device with pairing code on Android. Enter that temporary address and code here.</p><form onSubmit={onSubmit}><label>Pairing host<input required value={form.host} placeholder="192.168.1.30" onChange={(event) => onChange({ ...form, host: event.target.value })} /></label><label>Pairing port<input required type="number" min="1" max="65535" value={form.port} placeholder="37123" onChange={(event) => onChange({ ...form, port: event.target.value })} /></label><label>Pairing code<input required inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} value={form.pairing_code} placeholder="123456" onChange={(event) => onChange({ ...form, pairing_code: event.target.value })} /></label><p className="form-hint">After pairing, add the device with the separate connection port shown on the Wireless debugging screen.</p><FormActions busy={busy} label="Pair device" onCancel={onClose} /></form></ModalShell>;
+type QRPairingSession = {
+  session_id: string;
+  qr_payload: string;
+  service_name: string;
+  expires_in_seconds: number;
+};
+
+function PairModal({
+  form,
+  busy,
+  onChange,
+  onClose,
+  onSubmit,
+  onNotice,
+}: {
+  form: PairForm;
+  busy: boolean;
+  onChange: (form: PairForm) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+  onNotice: (message: string) => void;
+}) {
+  const [mode, setMode] = useState<"code" | "qr">("code");
+  const [qrSession, setQrSession] = useState<QRPairingSession | null>(null);
+  const [qrImage, setQrImage] = useState("");
+  const [qrBusy, setQrBusy] = useState(false);
+
+  const generateQr = async () => {
+    setQrBusy(true);
+    try {
+      const session = await api<QRPairingSession>("/api/devices/pair/qr", { method: "POST" });
+      const image = await QRCode.toDataURL(session.qr_payload, {
+        width: 320,
+        margin: 2,
+        errorCorrectionLevel: "M",
+        color: { dark: "#10181eff", light: "#ffffffff" },
+      });
+      setQrSession(session);
+      setQrImage(image);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Could not generate the QR pairing session.");
+    } finally {
+      setQrBusy(false);
+    }
+  };
+
+  const completeQr = async () => {
+    if (!qrSession) return;
+    setQrBusy(true);
+    try {
+      const response = await api<{ message: string }>("/api/devices/pair/qr/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: qrSession.session_id }),
+      });
+      onClose();
+      onNotice(response.message);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "The phone was not discovered after scanning the QR code.");
+    } finally {
+      setQrBusy(false);
+    }
+  };
+
+  return (
+    <ModalShell titleId="pair-modal-title" onClose={onClose}>
+      <p className="kicker">Android 11 or newer</p>
+      <h2 id="pair-modal-title">Pair wireless debugging</h2>
+      <div className="pair-tabs" role="tablist" aria-label="Pairing method">
+        <button className={mode === "code" ? "active" : ""} type="button" role="tab" aria-selected={mode === "code"} onClick={() => setMode("code")}><Radio size={15} />Six-digit code</button>
+        <button className={mode === "qr" ? "active" : ""} type="button" role="tab" aria-selected={mode === "qr"} onClick={() => setMode("qr")}><QrCodeIcon size={15} />QR code</button>
+      </div>
+
+      {mode === "code" ? <>
+        <p className="modal-copy">Open Wireless debugging → Pair device with pairing code on Android. Enter that temporary address and code here.</p>
+        <form onSubmit={onSubmit}>
+          <label>Pairing host<input required value={form.host} placeholder="192.168.1.30" onChange={(event) => onChange({ ...form, host: event.target.value })} /></label>
+          <label>Pairing port<input required type="number" min="1" max="65535" value={form.port} placeholder="37123" onChange={(event) => onChange({ ...form, port: event.target.value })} /></label>
+          <label>Pairing code<input required inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} value={form.pairing_code} placeholder="123456" onChange={(event) => onChange({ ...form, pairing_code: event.target.value })} /></label>
+          <p className="form-hint">After pairing, add the device with the separate connection port shown on the Wireless debugging screen.</p>
+          <FormActions busy={busy} label="Pair device" onCancel={onClose} />
+        </form>
+      </> : <section className="qr-pairing">
+        <p className="modal-copy">Keep the phone and ZimaOS on the same LAN. On Android, open Wireless debugging → Pair device with QR code.</p>
+        {qrImage ? <>
+          <div className="qr-frame"><img src={qrImage} alt="Temporary ADB wireless pairing QR code" /></div>
+          <p className="qr-session-name"><i />Waiting for <code>{qrSession?.service_name}</code> · expires in two minutes</p>
+          <ol>
+            <li>Scan this code with Android's wireless-debugging scanner.</li>
+            <li>Wait for the scanner to close.</li>
+            <li>Click Complete pairing below.</li>
+          </ol>
+          <div className="form-actions qr-actions">
+            <button type="button" disabled={qrBusy} onClick={() => void generateQr()}>Generate another</button>
+            <button className="primary-action" type="button" disabled={qrBusy} onClick={() => void completeQr()}>{qrBusy && <LoaderCircle size={15} className="spin" />}Complete pairing</button>
+          </div>
+        </> : <button className="qr-generate" type="button" disabled={qrBusy} onClick={() => void generateQr()}>
+          {qrBusy ? <LoaderCircle size={22} className="spin" /> : <QrCodeIcon size={28} />}
+          <span><strong>Generate secure QR code</strong><small>One-time session, valid for two minutes</small></span>
+        </button>}
+        <p className="form-hint">QR pairing depends on local mDNS discovery. Use the six-digit method if ZimaOS and Android are on different networks.</p>
+      </section>}
+    </ModalShell>
+  );
 }
 
 function EnvironmentModal({ devices, form, busy, onChange, onClose, onSubmit }: { devices: Device[]; form: EnvironmentForm; busy: boolean; onChange: (form: EnvironmentForm) => void; onClose: () => void; onSubmit: (event: FormEvent) => void }) {
